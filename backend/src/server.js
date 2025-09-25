@@ -1,11 +1,15 @@
 import express from "express";
 import dotenv from "dotenv";
+import taskRoutes from "./routes/taskRoutes.js"
 import { connectDB } from "./config/db.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+//Routes
+app.use("/api/tasks",taskRoutes);
 
 connectDB().then(() => {
   app.listen(PORT, () => {
