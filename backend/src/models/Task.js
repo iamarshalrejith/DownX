@@ -11,6 +11,7 @@ const taskSchema = new mongoose.Schema(
     },
     steps: {
       type: [String],
+      default:[]
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
