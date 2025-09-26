@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import generateToken from "../utils/generateToken.js";
 
 //Register a new User
 export const registerUser = async (req, res) => {
@@ -29,7 +30,8 @@ export const registerUser = async (req, res) => {
 
     // respond with user data
     const { password: _, ...userdata } = savedUser._doc;
-    res.status(201).json(userdata);
+    const token = generateToken(savedUser._id)
+    res.status(201).json({...userdata,token});
   } catch (error) {
     console.error("Error registering user:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -53,7 +55,9 @@ export const loginUser = async (req,res) => {
         if(!isMatch){
             return res.status(401).json({message: "Invalid email or password"});
         }
-        return res.status(200).json({message: "Login successful"});
+        const {password: _, ...userdata} = user._doc;
+        const token = generateToken(user._id)
+        return res.status(200).json({...userdata,token});
     }catch (error) {
         console.error("Error logging in user:", error);
         res.status(500).json({ message: "Internal Server Error" });
