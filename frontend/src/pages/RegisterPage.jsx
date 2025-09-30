@@ -2,17 +2,17 @@ import React from "react";
 import AuthLayout from "../components/common/AuthLayout";
 import AuthForm from "../components/common/AuthForm";
 
-const LoginPage = () => {
-  const handleLogin = (data) => {
-    console.log("Login data:", data);
+const RegisterPage = () => {
+  const handleRegister = (data) => {
+    console.log("Registration data:", data);
     // TODO: Add API call
   };
 
   return (
     <AuthLayout>
-      <AuthForm type="login" onSubmit={handleLogin} />
+      <AuthForm type="register" onSubmit={handleRegister} />
     </AuthLayout>
   );
 };
 
-export default LoginPage;
+export default RegisterPage;
