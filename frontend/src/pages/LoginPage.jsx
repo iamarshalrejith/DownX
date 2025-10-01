@@ -3,14 +3,9 @@ import AuthLayout from "../components/common/AuthLayout";
 import AuthForm from "../components/common/AuthForm";
 
 const LoginPage = () => {
-  const handleLogin = (data) => {
-    console.log("Login data:", data);
-    // TODO: Add API call
-  };
-
   return (
     <AuthLayout>
-      <AuthForm type="login" onSubmit={handleLogin} />
+      <AuthForm type="login"  />
     </AuthLayout>
   );
 };

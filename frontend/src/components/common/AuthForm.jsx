@@ -1,7 +1,11 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { login, register, reset } from "../../features/auth/authSlice.js";
+import Loadingdots from "../Loadingdots.jsx";
+import toast from "react-hot-toast";
 
-const AuthForm = ({ type = "login", onSubmit }) => {
+const AuthForm = ({ type = "login" }) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -9,6 +13,36 @@ const AuthForm = ({ type = "login", onSubmit }) => {
     role: "",
   });
   const isLogin = type === "login";
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // get auth state from redux
+  const { user, isLoading, isError, isSuccess, message } = useSelector(
+    (state) => state.auth
+  );
+
+  useEffect(() => {
+    // redirect if user exists -> succesful login or register
+    if (user) {
+      toast.success("Welcome Back!");
+      navigate("/dashboard");
+    }
+
+    if (isError) {
+      toast.error(message || "Login/Register failed");
+    }
+
+    // cleanup auth state after actions
+    if (isSuccess || isError) {
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        role: "",
+      });
+      dispatch(reset()); // clears isSuccess or isError flags in slice
+    }
+  }, [isSuccess, dispatch, user, navigate, isError, message]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -20,7 +54,18 @@ const AuthForm = ({ type = "login", onSubmit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (onSubmit) onSubmit(formData);
+    if (isLogin) {
+      dispatch(login({ email: formData.email, password: formData.password }));
+    } else {
+      dispatch(
+        register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        })
+      );
+    }
   };
 
   return (
@@ -34,7 +79,7 @@ const AuthForm = ({ type = "login", onSubmit }) => {
         {isLogin ? "Welcome Back" : "Create Account"}
       </h2>
       <p className="text-center font-bold text-sm">
-        {isLogin ? "Login in" : "Sign up"} 
+        {isLogin ? "Login in" : "Sign up"}
       </p>
 
       {/* Registration Fields */}
@@ -116,9 +161,20 @@ const AuthForm = ({ type = "login", onSubmit }) => {
       {/* Submit Button */}
       <button
         type="submit"
-        className="w-full py-3 px-4 rounded-xl font-semibold text-white shadow-lg bg-gray-950 hover:bg-black transition"
+        disabled={isLoading}
+        className={`w-full py-3 px-4 rounded-xl font-semibold text-white shadow-lg bg-gray-950 hover:bg-black transition  ${
+          isLoading
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-gray-950 hover:bg-black"
+        }`}
       >
-        {isLogin ? "Login" : "Register"}
+        {isLoading ? (
+          <Loadingdots size="w-3 h-3" color="bg-white" gap="mx-1" />
+        ) : isLogin ? (
+          "Login"
+        ) : (
+          "Register"
+        )}
       </button>
 
       {/* Login or register */}
@@ -126,14 +182,20 @@ const AuthForm = ({ type = "login", onSubmit }) => {
         {isLogin ? (
           <>
             Don’t have an account?{" "}
-            <Link to="/register" className="text-gray-900 font-semibold hover:underline">
+            <Link
+              to="/register"
+              className="text-gray-900 font-semibold hover:underline"
+            >
               Register
             </Link>
           </>
         ) : (
           <>
             Already have an account?{" "}
-            <Link to="/login" className="text-gray-900 font-semibold hover:underline">
+            <Link
+              to="/login"
+              className="text-gray-900 font-semibold hover:underline"
+            >
               Login
             </Link>
           </>
