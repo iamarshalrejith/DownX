@@ -2,8 +2,8 @@ import express from "express";
 import {
   createStudent,
   linkStudentToUser,
-} from "../controller/studentController";
-import { protect } from "../middleware/authmiddleware";
+} from "../controller/studentController.js";
+import { protect } from "../middleware/authmiddleware.js";
 
 const router = express.Router();
 
