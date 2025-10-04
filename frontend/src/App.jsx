@@ -7,6 +7,7 @@ import ParentDashboardHome from './components/ParentDashboardHome';
 import StudentDashboard from "./pages/StudentDashboard";
 import RegisterPage from './pages/RegisterPage';
 import StudentManagementPage from './pages/StudentManagementPage';
+import AllStudentsPage from './pages/AllStudentsPage';
 
 const App = () => {
   return (
@@ -18,6 +19,7 @@ const App = () => {
          <Route path='teacher' element={<TeacherDashboardHome />}/>
          <Route path='parent' element={<ParentDashboardHome />} />
          <Route path='students' element={<StudentManagementPage />}/>
+         <Route path='all-students' element={<AllStudentsPage />} />
       </Route>
 
       <Route path='student-dashboard' element={<StudentDashboard />}/>

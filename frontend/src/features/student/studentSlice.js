@@ -3,6 +3,21 @@ import studentService from "../../api/studentService";
 import { updateUser } from "../auth/authSlice";
 
 // Async thunks
+
+export const getStudents = createAsyncThunk(
+  "students/getAll",
+  async(_,thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.user.token;
+      return await studentService.getStudents(token);
+    } catch (error) {
+        return thunkAPI.rejectWithValue(
+          error.response?.message || error.message || "Failed to fetch students"
+        )
+    }
+  }
+)
+
 // Create student (Teacher only)
 export const createStudent = createAsyncThunk(
   "students/create",
@@ -39,6 +54,7 @@ export const linkStudent = createAsyncThunk(
 
 // Slice
 const initialState = {
+  myStudents: [],
   isLoading: false,
   isSuccess: false,
   isError: false,
@@ -58,6 +74,21 @@ const studentSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Get Students
+      .addCase(getStudents.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getStudents.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.myStudents = action.payload; 
+      })
+      .addCase(getStudents.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+
       // Create student
       .addCase(createStudent.pending, (state) => {
         state.isLoading = true;

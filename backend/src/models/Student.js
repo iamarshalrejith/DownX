@@ -1,30 +1,35 @@
 import mongoose from "mongoose";
 
 const studentSchema = new mongoose.Schema(
-    {
-        name: {
-            type: String,
-            required: true,
-            trim:true,
-        },
-        caretakers:[
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User" // references teachers and parents
-            }
-        ],
-        tasksAssigned: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "Task", // references tasks in their learning path
-            }
-        ]
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
     },
-    {
-        timestamps: true
-    }
-)
+    caretakers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // references teachers and parents
+      },
+    ],
+    tasksAssigned: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Task", // references tasks in their learning path
+      },
+    ],
+    enrollmentId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-const Student = mongoose.model("Student",studentSchema)
+const Student = mongoose.model("Student", studentSchema);
 
 export default Student;

@@ -2,6 +2,23 @@ import axios from "axios";
 
 const API_URL = `${import.meta.env.VITE_API_URL}/api/students/`;
 
+const getStudents = async (token) => {
+  try{
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+    const response = await axios.get(API_URL,config);
+    return response.data;
+  }
+  catch(error){
+      return Promise.reject(
+        error.response?.data || { message: "Failed to fetch students"}
+      )
+  }
+}
+
 // create a new student (only teachers allowed)
 const createStudent = async (studentData, token) => {
   try {
@@ -37,6 +54,7 @@ const linkStudent = async (studentId, token) => {
 };
 
 const studentService = {
+  getStudents,
   createStudent,
   linkStudent,
 };
