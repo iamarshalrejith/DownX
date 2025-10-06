@@ -3,27 +3,47 @@ import studentService from "../../api/studentService";
 import { updateUser } from "../auth/authSlice";
 
 // Async thunks
+// Student login
+export const studentLogin = createAsyncThunk(
+  "students/login",
+  async ({ enrollmentId, visualPin }, thunkAPI) => {
+    try {
+      const data = await studentService.loginStudent({
+        enrollmentId,
+        visualPin,
+      });
+
+      // Update auth slice with student + token
+      thunkAPI.dispatch(updateUser({ ...data.student, token: data.token }));
+
+      return data; // { student, token }
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || error.message || "Student login failed"
+      );
+    }
+  }
+);
 
 export const getStudents = createAsyncThunk(
   "students/getAll",
-  async(_,thunkAPI) => {
+  async (_, thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth.user.token;
       return await studentService.getStudents(token);
     } catch (error) {
-        return thunkAPI.rejectWithValue(
-          error.response?.message || error.message || "Failed to fetch students"
-        )
+      return thunkAPI.rejectWithValue(
+        error.response?.message || error.message || "Failed to fetch students"
+      );
     }
   }
-)
+);
 
-// Create student (Teacher only)
 export const createStudent = createAsyncThunk(
   "students/create",
   async (studentData, thunkAPI) => {
     try {
-      const token = thunkAPI.getState().auth.user.token; // get token from auth slice
+      const token = thunkAPI.getState().auth.user.token;
       return await studentService.createStudent(studentData, token);
     } catch (error) {
       return thunkAPI.rejectWithValue(
@@ -33,16 +53,16 @@ export const createStudent = createAsyncThunk(
   }
 );
 
-// Link student (Teacher or Parent)
 export const linkStudent = createAsyncThunk(
   "students/link",
-  async ({ studentId }, thunkAPI) => {
+  async ({ enrollmentId, visualPin }, thunkAPI) => {
     try {
-      const token = thunkAPI.getState().auth.user.token; // get token from auth slice
-      const data = await studentService.linkStudent(studentId, token);
-
-      // after linking, backend returns updated user -> update auth slice
-      thunkAPI.dispatch(updateUser(data.updatedUser));
+      const token = thunkAPI.getState().auth.user.token;
+      const data = await studentService.linkStudent(
+        { enrollmentId, visualPin },
+        token
+      );
+      thunkAPI.dispatch(updateUser(data.user));
       return data;
     } catch (error) {
       return thunkAPI.rejectWithValue(
@@ -55,8 +75,9 @@ export const linkStudent = createAsyncThunk(
 // Slice
 const initialState = {
   myStudents: [],
+  student: null,
   isLoading: false,
-  isSuccess: false,
+  loginSuccess: false,
   isError: false,
   message: "",
 };
@@ -67,21 +88,36 @@ const studentSlice = createSlice({
   reducers: {
     reset: (state) => {
       state.isLoading = false;
-      state.isSuccess = false;
+      state.loginSuccess = false;
       state.isError = false;
       state.message = "";
     },
   },
   extraReducers: (builder) => {
     builder
+      // Student login
+      .addCase(studentLogin.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(studentLogin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.loginSuccess = true;
+        state.student = action.payload.student;
+        state.token = action.payload.token;
+      })
+      .addCase(studentLogin.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+
       // Get Students
       .addCase(getStudents.pending, (state) => {
         state.isLoading = true;
       })
       .addCase(getStudents.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isSuccess = true;
-        state.myStudents = action.payload; 
+        state.myStudents = action.payload;
       })
       .addCase(getStudents.rejected, (state, action) => {
         state.isLoading = false;
@@ -89,13 +125,12 @@ const studentSlice = createSlice({
         state.message = action.payload;
       })
 
-      // Create student
+      // Create Student
       .addCase(createStudent.pending, (state) => {
         state.isLoading = true;
       })
       .addCase(createStudent.fulfilled, (state) => {
         state.isLoading = false;
-        state.isSuccess = true;
       })
       .addCase(createStudent.rejected, (state, action) => {
         state.isLoading = false;
@@ -103,13 +138,12 @@ const studentSlice = createSlice({
         state.message = action.payload;
       })
 
-      // Link student
+      // Link Student
       .addCase(linkStudent.pending, (state) => {
         state.isLoading = true;
       })
       .addCase(linkStudent.fulfilled, (state) => {
         state.isLoading = false;
-        state.isSuccess = true;
       })
       .addCase(linkStudent.rejected, (state, action) => {
         state.isLoading = false;

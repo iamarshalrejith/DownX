@@ -19,9 +19,7 @@ const AllStudentsPage = () => {
       <h1 className="text-2xl font-bold mb-4">All Linked Students</h1>
 
       {/* Loading state */}
-      {isLoading && (
-            <Loadingdots />
-      )}
+      {isLoading && <Loadingdots />}
 
       {/* Error state */}
       {isError && (
@@ -47,6 +45,9 @@ const AllStudentsPage = () => {
                 <th className="px-6 py-3 text-sm font-semibold uppercase">
                   Enrollment ID
                 </th>
+                <th className="px-6 py-3 text-sm font-semibold uppercase">
+                  Visual PIN
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -58,6 +59,10 @@ const AllStudentsPage = () => {
                   <td className="px-6 py-3 text-gray-800">{student.name}</td>
                   <td className="px-6 py-3 font-mono text-gray-600">
                     {student.enrollmentId}
+                  </td>
+                  <td className="px-6 py-3 font-mono text-xl">
+                    {/* Render the visual PIN as emojis */}
+                    {student.visualPin?.join(" ") || "❔❔❔❔"}
                   </td>
                 </tr>
               ))}

@@ -22,6 +22,14 @@ const taskSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    originalInstructions: {
+      type: String,
+      default: "",
+    },
+    simplifiedSteps: {
+      type: [String],
+      default: [],
+    }
   },
   { timestamps: true }
 );

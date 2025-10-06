@@ -5,7 +5,7 @@ import generateToken from "../utils/generateToken.js";
 //Register a new User
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role, studentId } = req.body;
+    const { name, email, password, role } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -22,7 +22,6 @@ export const registerUser = async (req, res) => {
       email: email,
       password: hashedPassword,
       role: role,
-      studentId: studentId || null,
     });
 
     // save user to db

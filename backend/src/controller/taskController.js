@@ -25,6 +25,9 @@ export const getTaskById = async (req, res) => {
 
 export const createTask = async (req, res) => {
   try {
+    if (!req.user || req.user.role !== "teacher") {
+      return res.status(403).json({ message: "Only teachers can create tasks" });
+    }
     const { title, description, steps } = req.body;
 
     //validate
@@ -49,6 +52,9 @@ export const createTask = async (req, res) => {
 
 export const updateTask = async (req, res) => {
   try {
+    if (!req.user || req.user.role !== "teacher") {
+      return res.status(403).json({ message: "Only teachers can update tasks" });
+    }
     const { title, description, steps } = req.body;
     if (!title && !description && !steps) {
       return res.status(400).json({ message: "At least one field is required" });
@@ -78,6 +84,9 @@ export const updateTask = async (req, res) => {
 
 export const deleteTask = async (req, res) => {
   try {
+      if (!req.user || req.user.role !== "teacher") {
+      return res.status(403).json({ message: "Only teachers can delete tasks" });
+    }
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 

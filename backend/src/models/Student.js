@@ -24,6 +24,10 @@ const studentSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    visualPin : {
+      type: [String],
+      default: [],
+    }
   },
   {
     timestamps: true,

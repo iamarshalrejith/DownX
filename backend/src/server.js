@@ -4,6 +4,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js"
 import { connectDB } from "./config/db.js";
 
 dotenv.config();
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/students", studentRoutes);
+app.use("/api/ai",aiRoutes)
 
 connectDB().then(() => {
   app.listen(PORT, () => {
