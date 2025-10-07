@@ -25,30 +25,43 @@ export const getTaskById = async (req, res) => {
 
 export const createTask = async (req, res) => {
   try {
+    // Only teachers can create tasks
     if (!req.user || req.user.role !== "teacher") {
       return res.status(403).json({ message: "Only teachers can create tasks" });
     }
-    const { title, description, steps } = req.body;
 
-    //validate
+    const {
+      title,
+      description,
+      steps,
+      simplifiedSteps,
+      originalInstructions,
+    } = req.body;
+
+    // Basic validation
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
 
+    // Create the task
     const task = new Task({
       title,
       description,
       steps,
-      owner:req.user._id,
+      simplifiedSteps,        
+      originalInstructions,  
+      owner: req.user._id,
     });
 
     const savedTask = await task.save();
+
     res.status(201).json(savedTask);
   } catch (error) {
-    console.error("Error in createTask controller", error);
+    console.error("Error in createTask controller:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 export const updateTask = async (req, res) => {
   try {

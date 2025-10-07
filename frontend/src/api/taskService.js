@@ -1,6 +1,25 @@
 import axios from "axios";
 
-const API_URL = `${import.meta.env.VITE_API_URL}/api/tasks/`;
+const BASE_URL = import.meta.env.VITE_API_URL;
+
+// task api url
+const API_URL = `${BASE_URL}/api/tasks/`;
+
+// ai simplification api url
+const AI_URL = `${BASE_URL}/api/ai/simplify`;
+
+// simplify Instruction
+const simplifyInstruction = async (inputText) => {
+  try {
+    const response = await axios.post(AI_URL, { inputText });
+    return response.data;
+  } catch (error) {
+    console.error("Simplify API Error:", error);
+    return Promise.reject(
+      error.response?.data || { message: "Failed to simplify instructions" }
+    );
+  }
+};
 
 // create a new task
 const createTask = async (taskData, token) => {
@@ -13,6 +32,7 @@ const createTask = async (taskData, token) => {
     const response = await axios.post(API_URL, taskData, config);
     return response.data;
   } catch (error) {
+    console.error("Create task error:", error);
     return Promise.reject(
       error.response?.data || { message: "Failed to create task" }
     );
@@ -28,6 +48,7 @@ const getTasks = async (token) => {
     const response = await axios.get(API_URL, config);
     return response.data;
   } catch (error) {
+    console.error("Get Tasks Error:", error);
     return Promise.reject(
       error.response?.data || { message: "Failed to fetch tasks" }
     );
@@ -35,14 +56,14 @@ const getTasks = async (token) => {
 };
 
 // get task by id
-const getTaskById = async (IdleDeadline, token) => {
+const getTaskById = async (id, token) => {
   try {
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     };
-    const reponse = await axios.get(`${API_URI}${id}`, config);
+    const response = await axios.get(`${API_URL}${id}`, config);
     return response.data;
   } catch (error) {
     return Promise.reject(
@@ -52,9 +73,10 @@ const getTaskById = async (IdleDeadline, token) => {
 };
 
 const taskService = {
-    createTask,
-    getTasks,
-    getTaskById,
-}
+  simplifyInstruction,
+  createTask,
+  getTasks,
+  getTaskById,
+};
 
 export default taskService;

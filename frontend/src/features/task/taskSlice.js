@@ -1,19 +1,37 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import taskService from "../../api/taskService.js";
 
-// thunk => createSimplifiedTask
+
+// Thunk: Create Simplified Task (AI + DB Orchestration)
 export const createSimplifiedTask = createAsyncThunk(
   "task/createSimplifiedTask",
   async ({ taskData, token }, { rejectWithValue }) => {
     try {
-      return await taskService.createTask(taskData, token);
+      // Step 1: Call AI Simplification Endpoint
+      const aiResponse = await taskService.simplifyInstruction(taskData.description);
+
+      if (!aiResponse?.steps || !Array.isArray(aiResponse.steps)) {
+        throw new Error("AI did not return valid simplified steps");
+      }
+
+      // Step 2: Merge AI steps into taskData
+      const finalTaskData = {
+        ...taskData,
+        simplifiedSteps: aiResponse.steps,
+      };
+
+      // Step 3: Save Final Task to Database
+      const savedTask = await taskService.createTask(finalTaskData, token);
+
+      return savedTask;
     } catch (error) {
-      return rejectWithValue(error.message || "Failed to create task");
+      console.error("Error in createSimplifiedTask:", error);
+      return rejectWithValue(error.message || "Failed to create simplified task");
     }
   }
 );
 
-// thunk => getalltasks
+// Thunk: Get All Tasks
 export const getAllTasks = createAsyncThunk(
   "task/getAllTasks",
   async (token, { rejectWithValue }) => {
@@ -25,6 +43,8 @@ export const getAllTasks = createAsyncThunk(
   }
 );
 
+// Initial State
+  
 const initialState = {
   tasks: [],
   currentTask: null,
@@ -47,7 +67,7 @@ const taskSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // create task
+      /* --- Create Simplified Task --- */
       .addCase(createSimplifiedTask.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -63,7 +83,7 @@ const taskSlice = createSlice({
         state.error = action.payload;
       })
 
-      // get all tasks
+      /* --- Get All Tasks --- */
       .addCase(getAllTasks.pending, (state) => {
         state.loading = true;
       })
