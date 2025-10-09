@@ -143,7 +143,6 @@ const AuthForm = ({ type = "login" }) => {
               className="w-full px-4 py-2 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             >
               <option value="">Select role</option>
-              <option value="student">Student</option>
               <option value="teacher">Teacher</option>
               <option value="parent">Parent</option>
             </select>

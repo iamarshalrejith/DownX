@@ -10,6 +10,8 @@ import StudentManagementPage from "./pages/StudentManagementPage";
 import AllStudentsPage from "./pages/AllStudentsPage";
 import RoleSelectionPage from "./pages/RoleSelectionPage";
 import StudentLoginPage from "./pages/StudentLoginPage";
+import TaskListView from "./pages/TaskListView";
+import CreateTaskPage from "./pages/CreateTaskPage";
 import { useSelector } from "react-redux";
 
 // Protected dashboard route wrapper
@@ -40,6 +42,8 @@ const App = () => {
         <Route path="parent" element={<ParentDashboardHome />} />
         <Route path="students" element={<StudentManagementPage />} />
         <Route path="all-students" element={<AllStudentsPage />} />
+        <Route path="tasks" element={<TaskListView />} />
+        <Route path="tasks/create" element={<CreateTaskPage />} />
       </Route>
 
       <Route path="/student-dashboard" element={<StudentDashboard />} />

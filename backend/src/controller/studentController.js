@@ -113,7 +113,7 @@ export const linkStudentToUser = async (req, res) => {
       { new: true }
     ).select("-password");
 
-    return res.status(200).json({ message: "Student linked successfully", user: updatedUser });
+    return res.status(200).json({ message: "Student linked successfully", user: updatedUser,student });
   } catch (error) {
     console.error("Error linking student:", error);
     return res.status(500).json({ message: "Server error", error: error.message });

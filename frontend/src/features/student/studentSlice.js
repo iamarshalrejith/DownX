@@ -2,7 +2,8 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import studentService from "../../api/studentService";
 import { updateUser } from "../auth/authSlice";
 
-// Async thunks
+// Async Thunks
+
 // Student login
 export const studentLogin = createAsyncThunk(
   "students/login",
@@ -19,12 +20,15 @@ export const studentLogin = createAsyncThunk(
       return data; // { student, token }
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.data?.message || error.message || "Student login failed"
+        error.response?.data?.message ||
+          error.message ||
+          "Student login failed"
       );
     }
   }
 );
 
+// Get all students linked to user
 export const getStudents = createAsyncThunk(
   "students/getAll",
   async (_, thunkAPI) => {
@@ -39,6 +43,7 @@ export const getStudents = createAsyncThunk(
   }
 );
 
+// Create student (teacher only)
 export const createStudent = createAsyncThunk(
   "students/create",
   async (studentData, thunkAPI) => {
@@ -53,6 +58,7 @@ export const createStudent = createAsyncThunk(
   }
 );
 
+// Link existing student to parent
 export const linkStudent = createAsyncThunk(
   "students/link",
   async ({ enrollmentId, visualPin }, thunkAPI) => {
@@ -63,7 +69,7 @@ export const linkStudent = createAsyncThunk(
         token
       );
       thunkAPI.dispatch(updateUser(data.user));
-      return data;
+      return data; // { message, user, student }
     } catch (error) {
       return thunkAPI.rejectWithValue(
         error.response?.message || error.message || "Failed to link student"
@@ -73,10 +79,13 @@ export const linkStudent = createAsyncThunk(
 );
 
 // Slice
+
 const initialState = {
   myStudents: [],
   student: null,
+  token: null,
   isLoading: false,
+  isLinking: false,
   loginSuccess: false,
   isError: false,
   message: "",
@@ -88,6 +97,7 @@ const studentSlice = createSlice({
   reducers: {
     reset: (state) => {
       state.isLoading = false;
+      state.isLinking = false;
       state.loginSuccess = false;
       state.isError = false;
       state.message = "";
@@ -140,18 +150,27 @@ const studentSlice = createSlice({
 
       // Link Student
       .addCase(linkStudent.pending, (state) => {
-        state.isLoading = true;
+        state.isLinking = true;
       })
-      .addCase(linkStudent.fulfilled, (state) => {
-        state.isLoading = false;
+      .addCase(linkStudent.fulfilled, (state, action) => {
+        state.isLinking = false;
+        const newStudent = action.payload.student;
+
+        if (newStudent) {
+          const exists = state.myStudents.some((s) => s._id === newStudent._id);
+          if (!exists) {
+            state.myStudents.push(newStudent);
+          }
+        }
       })
       .addCase(linkStudent.rejected, (state, action) => {
-        state.isLoading = false;
+        state.isLinking = false;
         state.isError = true;
         state.message = action.payload;
       });
   },
 });
+
 
 export const { reset } = studentSlice.actions;
 export default studentSlice.reducer;

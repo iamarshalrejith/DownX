@@ -8,7 +8,7 @@ export const createSimplifiedTask = createAsyncThunk(
   async ({ taskData, token }, { rejectWithValue }) => {
     try {
       // Step 1: Call AI Simplification Endpoint
-      const aiResponse = await taskService.simplifyInstruction(taskData.description);
+      const aiResponse = await taskService.simplifyInstruction(taskData.originalInstructions, token);
 
       if (!aiResponse?.steps || !Array.isArray(aiResponse.steps)) {
         throw new Error("AI did not return valid simplified steps");
@@ -55,7 +55,7 @@ const initialState = {
 
 // Slice
 const taskSlice = createSlice({
-  name: "tasks",
+  name: "task",
   initialState,
   reducers: {
     resetTaskState: (state) => {

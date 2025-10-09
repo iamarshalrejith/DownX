@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { IoArrowBack } from "react-icons/io5";
 import loginpage_img from "../../assets/loginpage_img.jpg";
-import { useState, useEffect } from "react";
 
 // Custom hook to get window size
 function useWindowSize() {
@@ -18,7 +19,7 @@ function useWindowSize() {
     }
 
     window.addEventListener("resize", handleResize);
-    handleResize(); // set initial size
+    handleResize(); // initial size
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -28,14 +29,24 @@ function useWindowSize() {
 
 const AuthLayout = ({ children }) => {
   const { width } = useWindowSize();
-
-  // Consider "mobile" as width < 768px (Tailwind md breakpoint)
-  const isMobile = width < 768;
+  const navigate = useNavigate();
+  const isMobile = width < 768; // Tailwind md breakpoint
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row w-full">
-      {/* Left Section  */}
+    <div className="min-h-screen flex flex-col md:flex-row w-full relative">
+      {/* Left Section */}
       <div className="relative hidden md:flex md:w-1/2 overflow-hidden">
+        {/* ✅ Fixed Back Arrow Button */}
+        <button
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4 z-50 flex items-center justify-center 
+                     text-white bg-black/60 rounded-full p-2 transition-all duration-200 
+                     hover:bg-white hover:text-black hover:scale-105"
+          title="Go back"
+        >
+          <IoArrowBack size={22} />
+        </button>
+
         <img
           src={loginpage_img}
           alt="Login Page"
@@ -73,7 +84,7 @@ const AuthLayout = ({ children }) => {
             : {}
         }
       >
-        <div className="w-full max-w-sm bg-gray-300 backdrop-blur-lg shadow-2xl rounded-3xl p-8">
+        <div className="w-full max-w-sm bg-gray-300 backdrop-blur-lg shadow-2xl rounded-3xl p-8 relative">
           {children}
         </div>
       </div>

@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { createSimplifiedTask, resetTaskState } from "../features/task/taskSlice.js";
+import {
+  createSimplifiedTask,
+  resetTaskState,
+} from "../features/task/taskSlice.js";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-hot-toast";
-import { getStudents } from "../features/student/studentSlice.js";
+import toast from "react-hot-toast";
+import { FiArrowLeft } from "react-icons/fi";
 
 const CreateTaskPage = () => {
+  // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState("");
   const [originalInstructions, setOriginalInstructions] = useState("");
 
   const dispatch = useDispatch();
@@ -17,19 +20,11 @@ const CreateTaskPage = () => {
 
   const { user } = useSelector((state) => state.auth);
   const { loading, success, error } = useSelector((state) => state.task);
-  const { students } = useSelector((state) => state.student || { students: [] });
 
-  // Fetch students when user is available
-  useEffect(() => {
-    if (user?.token) {
-      dispatch(getStudents(user.token));
-    }
-  }, [dispatch, user]);
-
+  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Prepare form data for AI-driven creation
     const taskData = {
       title,
       description,
@@ -37,25 +32,40 @@ const CreateTaskPage = () => {
         .split("\n")
         .map((s) => s.trim())
         .filter(Boolean),
-      studentId: selectedStudent,
-      originalInstructions, 
+      originalInstructions,
     };
 
-    // Dispatch AI-based thunk
     dispatch(createSimplifiedTask({ taskData, token: user?.token }));
   };
 
-  // Handle task creation success
+  // Handle success
   useEffect(() => {
     if (success) {
       toast.success("Task created successfully!");
       dispatch(resetTaskState());
-      navigate("/tasks");
+      navigate("/dashboard/tasks");
     }
   }, [success, navigate, dispatch]);
 
+  // Handle error
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   return (
-    <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-lg shadow-md">
+    <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-lg shadow-md relative">
+      {/* Back Button */}
+      <button
+        onClick={() => navigate("/dashboard/tasks")}
+        className="absolute top-4 left-4 text-gray-600 hover:text-gray-900 flex items-center space-x-1"
+        type="button"
+      >
+        <FiArrowLeft size={20} />
+        <span>Back</span>
+      </button>
+
       <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
         Create New Task
       </h2>
@@ -64,7 +74,7 @@ const CreateTaskPage = () => {
         {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Title
+            Title <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -76,10 +86,10 @@ const CreateTaskPage = () => {
           />
         </div>
 
-        {/* Original Instructions (for AI input) */}
+        {/* Original Instructions */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Original Instructions (AI will simplify this)
+            Original Instructions <span className="text-red-500">*</span>
           </label>
           <textarea
             value={originalInstructions}
@@ -116,30 +126,6 @@ const CreateTaskPage = () => {
           />
         </div>
 
-        {/* Student Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Assign to Student
-          </label>
-          <select
-            value={selectedStudent}
-            onChange={(e) => setSelectedStudent(e.target.value)}
-            required
-            className="w-full border border-gray-300 rounded-md p-2 bg-white focus:ring focus:ring-blue-300 outline-none"
-          >
-            <option value="">Select a student</option>
-            {students && students.length > 0 ? (
-              students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.name}
-                </option>
-              ))
-            ) : (
-              <option disabled>No students available</option>
-            )}
-          </select>
-        </div>
-
         {/* Submit Button */}
         <button
           type="submit"
@@ -151,7 +137,9 @@ const CreateTaskPage = () => {
 
         {/* Error Message */}
         {error && (
-          <p className="text-red-600 text-center text-sm font-medium">{error}</p>
+          <p className="text-red-600 text-center text-sm font-medium mt-2">
+            {error}
+          </p>
         )}
       </form>
     </div>

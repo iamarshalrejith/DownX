@@ -9,9 +9,14 @@ const API_URL = `${BASE_URL}/api/tasks/`;
 const AI_URL = `${BASE_URL}/api/ai/simplify`;
 
 // simplify Instruction
-const simplifyInstruction = async (inputText) => {
+const simplifyInstruction = async (inputText, token) => {
   try {
-    const response = await axios.post(AI_URL, { inputText });
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+    const response = await axios.post(AI_URL, { inputText }, config);
     return response.data;
   } catch (error) {
     console.error("Simplify API Error:", error);
@@ -20,6 +25,7 @@ const simplifyInstruction = async (inputText) => {
     );
   }
 };
+
 
 // create a new task
 const createTask = async (taskData, token) => {
