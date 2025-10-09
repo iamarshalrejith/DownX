@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { login, register, reset } from "../../features/auth/authSlice.js";
@@ -12,27 +12,42 @@ const AuthForm = ({ type = "login" }) => {
     password: "",
     role: "",
   });
+
   const isLogin = type === "login";
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const hasShownToast = useRef(false);
 
   // get auth state from redux
   const { user, isLoading, isError, isSuccess, message } = useSelector(
     (state) => state.auth
   );
 
+  // Handle login/register success or errors
   useEffect(() => {
-    // redirect if user exists -> succesful login or register
-    if (user) {
+    // Only show toast and navigate on fresh success
+    if (isSuccess && user && !hasShownToast.current) {
+      hasShownToast.current = true;
       toast.success("Welcome Back!");
-      navigate("/dashboard");
+
+      // Navigate based on role
+      switch (user.role) {
+        case "teacher":
+          navigate("/dashboard/teacher", { replace: true });
+          break;
+        case "parent":
+          navigate("/dashboard/parent", { replace: true });
+          break;
+        default:
+          navigate("/dashboard", { replace: true }); // fallback
+      }
     }
 
     if (isError) {
       toast.error(message || "Login/Register failed");
     }
 
-    // cleanup auth state after actions
+    // Reset form and auth state after success or error
     if (isSuccess || isError) {
       setFormData({
         name: "",
@@ -40,9 +55,19 @@ const AuthForm = ({ type = "login" }) => {
         password: "",
         role: "",
       });
-      dispatch(reset()); // clears isSuccess or isError flags in slice
+      dispatch(reset());
+      
+      // Reset the toast flag when resetting state
+      if (isError) {
+        hasShownToast.current = false;
+      }
     }
-  }, [isSuccess, dispatch, user, navigate, isError, message]);
+  }, [isError, isSuccess, message, dispatch, navigate, user]);
+
+  // Reset toast flag when component mounts
+  useEffect(() => {
+    hasShownToast.current = false;
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,6 +79,8 @@ const AuthForm = ({ type = "login" }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    hasShownToast.current = false; // Reset before new submission
+    
     if (isLogin) {
       dispatch(login({ email: formData.email, password: formData.password }));
     } else {
@@ -75,7 +102,7 @@ const AuthForm = ({ type = "login" }) => {
       aria-label={isLogin ? "Login form" : "Registration form"}
     >
       {/* Title */}
-      <h2 className="text-3xl font-extrabold text-center ">
+      <h2 className="text-3xl font-extrabold text-center">
         {isLogin ? "Welcome Back" : "Create Account"}
       </h2>
       <p className="text-center font-bold text-sm">
@@ -162,7 +189,7 @@ const AuthForm = ({ type = "login" }) => {
       <button
         type="submit"
         disabled={isLoading}
-        className={`w-full py-3 px-4 rounded-xl font-semibold text-white shadow-lg bg-gray-950 hover:bg-black transition  ${
+        className={`w-full py-3 px-4 rounded-xl font-semibold text-white shadow-lg transition ${
           isLoading
             ? "bg-gray-400 cursor-not-allowed"
             : "bg-gray-950 hover:bg-black"
@@ -181,7 +208,7 @@ const AuthForm = ({ type = "login" }) => {
       <p className="text-center text-sm text-gray-600 mt-4">
         {isLogin ? (
           <>
-            Don’t have an account?{" "}
+            Don't have an account?{" "}
             <Link
               to="/register"
               className="text-gray-900 font-semibold hover:underline"
