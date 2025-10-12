@@ -15,12 +15,21 @@ const taskSchema = new mongoose.Schema(
     // manual steps (if you ever add custom step creation) -> optional
     steps: {
       type: [String],
-      default:[]
+      default: [],
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User", // reference to user model
       required: true,
+    },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Student",
+      default: null,
+    },
+    assignedToAll: {
+      type: Boolean,
+      default: false,
     },
     isCompleted: {
       type: Boolean,
@@ -36,7 +45,7 @@ const taskSchema = new mongoose.Schema(
     simplifiedSteps: {
       type: [String],
       default: [],
-    }
+    },
   },
   { timestamps: true }
 );

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getStudents, reset } from "../features/student/studentSlice.js";
+import { getAllTasks } from "../features/task/taskSlice.js";
 import { Link, useNavigate } from "react-router-dom";
 import Loadingdots from "./Loadingdots.jsx";
 import { toast } from "react-hot-toast";
@@ -9,17 +10,32 @@ const TeacherDashboardHome = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { myStudents = [], isLoading, isError, message } = useSelector(
-    (state) => state.students
-  );
+  const {
+    myStudents = [],
+    isLoading,
+    isError,
+    message,
+  } = useSelector((state) => state.students);
+
+  const {
+    tasks = [],
+    loading: taskLoading,
+    error: taskError,
+  } = useSelector((state) => state.task || {});
   const { user } = useSelector((state) => state.auth);
 
   // Fetch students when teacher is logged in
   useEffect(() => {
     if (user?.token) {
       dispatch(getStudents(user.token));
+      dispatch(getAllTasks(user.token));
     }
   }, [dispatch, user?.token]);
+
+  // handle any task fetch errors
+  useEffect(()=> {
+    if(taskError) toast.error(taskError);
+  },[taskError]);
 
   // Show toast on error and reset state
   useEffect(() => {
@@ -29,8 +45,8 @@ const TeacherDashboardHome = () => {
     }
   }, [isError, message, dispatch]);
 
-  // Show loader while fetching data
-  if (isLoading) {
+  // Show loader while fetching data (tasks and students)
+  if (isLoading || taskLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loadingdots />
@@ -49,7 +65,6 @@ const TeacherDashboardHome = () => {
             </h1>
           </div>
 
-          {/* ✅ Replaced navigate() with Link */}
           <Link
             to="/dashboard/tasks/create"
             className="mt-4 sm:mt-0 inline-block bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800 transition-all duration-300"
@@ -68,13 +83,8 @@ const TeacherDashboardHome = () => {
           </div>
 
           <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
-            <h2 className="text-gray-600 font-medium mb-2">Active Tasks</h2>
-            <p className="text-4xl font-bold text-indigo-700">--</p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
-            <h2 className="text-gray-600 font-medium mb-2">Completed Tasks</h2>
-            <p className="text-4xl font-bold text-indigo-700">--</p>
+            <h2 className="text-gray-600 font-medium mb-2">Total Tasks</h2>
+            <p className="text-4xl font-bold text-indigo-700">{tasks.length}</p>
           </div>
         </div>
 

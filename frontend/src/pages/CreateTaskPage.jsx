@@ -4,6 +4,7 @@ import {
   createSimplifiedTask,
   resetTaskState,
 } from "../features/task/taskSlice.js";
+import { getStudents } from "../features/student/studentSlice.js";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { FiArrowLeft } from "react-icons/fi";
@@ -14,16 +15,37 @@ const CreateTaskPage = () => {
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState("");
   const [originalInstructions, setOriginalInstructions] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedToAll, setAssignedToAll] = useState(false);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const { user } = useSelector((state) => state.auth);
   const { loading, success, error } = useSelector((state) => state.task);
+  const { myStudents = [] } = useSelector((state) => state.students || {});
+
+  useEffect(() => {
+    if (user?.token && user?.role === "teacher") {
+      dispatch(getStudents(user.token));
+    }
+  }, [dispatch, user?.token, user?.role]);
 
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+
+    if (!assignedTo && !assignedToAll) {
+      toast.error(
+        "Please assign the task to a student or select 'All Students'"
+      );
+      return;
+    }
 
     const taskData = {
       title,
@@ -33,6 +55,8 @@ const CreateTaskPage = () => {
         .map((s) => s.trim())
         .filter(Boolean),
       originalInstructions,
+      assignedTo: assignedToAll ? null : assignedTo,
+      assignedToAll,
     };
 
     dispatch(createSimplifiedTask({ taskData, token: user?.token }));
@@ -124,6 +148,40 @@ const CreateTaskPage = () => {
             placeholder="Write each step on a new line"
             className="w-full border border-gray-300 rounded-md p-2 h-32 focus:ring focus:ring-blue-300 outline-none"
           />
+        </div>
+
+        {/* Student Selection Dropdown */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Assign To
+          </label>
+          <select
+            value={assignedTo}
+            onChange={(e) => setAssignedTo(e.target.value)}
+            disabled={assignedToAll}
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring focus:ring-blue-300 outline-none"
+          >
+            <option value="">-- Select a Student --</option>
+            {myStudents.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Assign To All Checkbox */}
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            checked={assignedToAll}
+            onChange={(e) => setAssignedToAll(e.target.checked)}
+            id="assignAll"
+            className="w-4 h-4 text-blue-600"
+          />
+          <label htmlFor="assignAll" className="text-gray-700 text-sm">
+            Assign to All Students
+          </label>
         </div>
 
         {/* Submit Button */}

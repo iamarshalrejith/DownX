@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { getStudents, linkStudent, reset } from "../features/student/studentSlice.js";
+import {
+  getStudents,
+  linkStudent,
+  reset,
+} from "../features/student/studentSlice.js";
+import { getAllTasks } from "../features/task/taskSlice.js";
 import Loadingdots from "./Loadingdots.jsx";
 import { toast } from "react-hot-toast";
 
@@ -15,9 +20,20 @@ const PIN_COLORS = [
 const ParentDashboardHome = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { myStudents = [], isLoading, isLinking, isError, message } = useSelector(
-    (state) => state.students
-  );
+
+  const {
+    tasks = [],
+    loading: taskLoading,
+    error: taskError,
+  } = useSelector((state) => state.task || {});
+
+  const {
+    myStudents = [],
+    isLoading,
+    isLinking,
+    isError,
+    message,
+  } = useSelector((state) => state.students);
 
   const [children, setChildren] = useState([]);
   const [enrollmentId, setEnrollmentId] = useState("");
@@ -29,12 +45,14 @@ const ParentDashboardHome = () => {
       toast.error(message);
       dispatch(reset());
     }
-  }, [isError, message, dispatch]);
+    if (taskError) toast.error(taskError);
+  }, [isError, message, dispatch,taskError]);
 
   // Fetch students initially
   useEffect(() => {
     if (user?.token) {
       dispatch(getStudents(user.token));
+      dispatch(getAllTasks(user.token));
     }
   }, [dispatch, user?.token]);
 
@@ -44,11 +62,18 @@ const ParentDashboardHome = () => {
       const linkedChildren = myStudents.filter((s) =>
         user.studentIds.includes(s._id)
       );
-      setChildren(linkedChildren);
+      // attach filtered tasks for each child
+      const withTasks = linkedChildren.map((child) => {
+        const childTasks = tasks.filter(
+          (t) => t.assignedToAll || t.assignedTo?._id === child._id
+        );
+        return { ...child, tasks: childTasks };
+      });
+      setChildren(withTasks);
     } else {
       setChildren([]);
     }
-  }, [user, myStudents]);
+  }, [user, myStudents, tasks]);
 
   // Handle visual PIN taps
   const handlePinTap = (index) => {
@@ -89,7 +114,7 @@ const ParentDashboardHome = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || taskLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loadingdots />
@@ -111,13 +136,25 @@ const ParentDashboardHome = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg">
             <h2 className="text-gray-600 font-medium mb-2">Total Children</h2>
-            <p className="text-4xl font-bold text-indigo-700">{children.length}</p>
+            <p className="text-4xl font-bold text-indigo-700">
+              {children.length}
+            </p>
+          </div>
+          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg">
+            <h2 className="text-gray-600 font-medium mb-2">
+              Total Tasks (All Children)
+            </h2>
+            <p className="text-4xl font-bold text-indigo-700">
+              {children.reduce((sum, c) => sum + (c.tasks?.length || 0), 0)}
+            </p>
           </div>
         </div>
 
         {/* Children List */}
         <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-md">
-          <h2 className="text-2xl font-semibold text-indigo-700 mb-4">👧 Child Activity</h2>
+          <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
+            👧 Child Activity
+          </h2>
           {children.length > 0 ? (
             <ul className="space-y-3">
               {children.map((child) => (
@@ -125,27 +162,37 @@ const ParentDashboardHome = () => {
                   key={child._id}
                   className="border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:bg-indigo-50/50 transition"
                 >
-                  <span className="font-medium text-gray-800 text-lg">{child.name}</span>
+                  <span className="font-medium text-gray-800 text-lg">
+                    {child.name}
+                  </span>
                   <span className="text-gray-500 text-sm">
                     {child.tasks?.length
-                      ? `${child.tasks.length} task${child.tasks.length > 1 ? "s" : ""} assigned`
+                      ? `${child.tasks.length} task${
+                          child.tasks.length > 1 ? "s" : ""
+                        } assigned`
                       : "No tasks yet"}
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 text-center py-4">No children linked yet.</p>
+            <p className="text-gray-500 text-center py-4">
+              No children linked yet.
+            </p>
           )}
         </div>
 
         {/* Link Child Section */}
         <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 text-white shadow-xl">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">Link a Child</h2>
+          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
+            Link a Child
+          </h2>
           <form className="space-y-6" onSubmit={handleLinkChild}>
             {/* Enrollment ID */}
             <div>
-              <label className="block text-sm font-medium mb-2">Enrollment ID</label>
+              <label className="block text-sm font-medium mb-2">
+                Enrollment ID
+              </label>
               <input
                 type="text"
                 value={enrollmentId}
@@ -158,7 +205,9 @@ const ParentDashboardHome = () => {
 
             {/* Visual PIN */}
             <div>
-              <label className="block text-sm font-medium mb-3">Visual PIN</label>
+              <label className="block text-sm font-medium mb-3">
+                Visual PIN
+              </label>
               <div className="flex gap-4 justify-center sm:justify-start">
                 {visualPin.map((val, idx) => (
                   <button

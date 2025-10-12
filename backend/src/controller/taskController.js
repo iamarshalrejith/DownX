@@ -4,7 +4,8 @@ export const getAllTasks = async (req, res) => {
   try {
     const tasks = await Task.find()
       .sort({ createdAt: -1 })
-      .populate("owner", "name");
+      .populate("owner", "name")
+      .populate("assignedTo", "name");
     res.status(200).json(tasks);
   } catch (error) {
     console.error("Error in getAllTasks controller", error);
@@ -14,7 +15,9 @@ export const getAllTasks = async (req, res) => {
 
 export const getTaskById = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id).populate("owner", "name");
+    const task = await Task.findById(req.params.id)
+      .populate("owner", "name")
+      .populate("assignedTo", "name");
     if (!task) return res.status(404).json({ message: "Task Not Found" });
     res.status(200).json(task);
   } catch (error) {
@@ -27,7 +30,9 @@ export const createTask = async (req, res) => {
   try {
     // Only teachers can create tasks
     if (!req.user || req.user.role !== "teacher") {
-      return res.status(403).json({ message: "Only teachers can create tasks" });
+      return res
+        .status(403)
+        .json({ message: "Only teachers can create tasks" });
     }
 
     const {
@@ -36,6 +41,8 @@ export const createTask = async (req, res) => {
       steps,
       simplifiedSteps,
       originalInstructions,
+      assignedTo,
+      assignedToAll,
     } = req.body;
 
     // Basic validation
@@ -43,14 +50,31 @@ export const createTask = async (req, res) => {
       return res.status(400).json({ message: "Title is required" });
     }
 
+    if (!assignedTo && !assignedToAll) {
+      return res
+        .status(400)
+        .json({
+          message: "You must assign the task to a student or to all student",
+        });
+    }
+
+    if (assignedTo && assignedToAll) {
+      return res
+        .status(400)
+        .json({
+          message: "You cannot assign to both a student and all students",
+        });
+    }
     // Create the task
     const task = new Task({
       title,
       description,
       steps,
-      simplifiedSteps,        
-      originalInstructions,  
+      simplifiedSteps,
+      originalInstructions,
       owner: req.user._id,
+      assignedTo: assignedToAll ? null : assignedTo,
+      assignedToAll,
     });
 
     const savedTask = await task.save();
@@ -62,15 +86,18 @@ export const createTask = async (req, res) => {
   }
 };
 
-
 export const updateTask = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "teacher") {
-      return res.status(403).json({ message: "Only teachers can update tasks" });
+      return res
+        .status(403)
+        .json({ message: "Only teachers can update tasks" });
     }
     const { title, description, steps } = req.body;
     if (!title && !description && !steps) {
-      return res.status(400).json({ message: "At least one field is required" });
+      return res
+        .status(400)
+        .json({ message: "At least one field is required" });
     }
 
     const task = await Task.findById(req.params.id);
@@ -78,17 +105,18 @@ export const updateTask = async (req, res) => {
 
     // Check if the authenticated user is the owner
     if (!task.owner.equals(req.user._id)) {
-      return res.status(403).json({ message: "You are not allowed to update this task" });
+      return res
+        .status(403)
+        .json({ message: "You are not allowed to update this task" });
     }
 
     // Update only the provided fields
-    if(title) task.title = title;
-    if(description) task.description = description;
-    if(steps) task.steps = steps;
+    if (title) task.title = title;
+    if (description) task.description = description;
+    if (steps) task.steps = steps;
 
     const updatedTask = await task.save();
     res.status(200).json(updatedTask);
-
   } catch (error) {
     console.error("Error in updateTask controller", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -97,23 +125,25 @@ export const updateTask = async (req, res) => {
 
 export const deleteTask = async (req, res) => {
   try {
-      if (!req.user || req.user.role !== "teacher") {
-      return res.status(403).json({ message: "Only teachers can delete tasks" });
+    if (!req.user || req.user.role !== "teacher") {
+      return res
+        .status(403)
+        .json({ message: "Only teachers can delete tasks" });
     }
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
     // Check if the authenticated user is the owner
     if (!task.owner.equals(req.user._id)) {
-      return res.status(403).json({ message: "You are not allowed to delete this task" });
+      return res
+        .status(403)
+        .json({ message: "You are not allowed to delete this task" });
     }
 
     await task.deleteOne();
     res.status(200).json({ message: "Task deleted successfully!" });
-
   } catch (error) {
     console.error("Error in deleteTask controller", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
