@@ -2,13 +2,14 @@ import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../features/auth/authSlice";
+import { reset as resetStudent } from "../features/student/studentSlice";
 import { getAllTasks } from "../features/task/taskSlice";
 
 const StudentDashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Redux state
+  // Get user from auth slice (this is where student data is stored after login)
   const user = useSelector((state) => state.auth.user);
   const { tasks, loading, error } = useSelector((state) => state.task);
 
@@ -16,12 +17,17 @@ const StudentDashboard = () => {
   useEffect(() => {
     if (user?.token) {
       dispatch(getAllTasks(user.token));
+    } else {
+      // If no user, redirect to login
+      navigate("/student-login");
     }
-  }, [dispatch, user]);
+  }, [dispatch, user, navigate]);
 
   const handleLogout = () => {
-    navigate("/");
+    // Clear both auth and student state
     dispatch(logout());
+    dispatch(resetStudent());
+    navigate("/", { replace: true });
   };
 
   // Loading state (for user data)

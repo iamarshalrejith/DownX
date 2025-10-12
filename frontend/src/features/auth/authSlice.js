@@ -101,6 +101,7 @@ const authSlice = createSlice({
 
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
+        localStorage.removeItem("user")
       });
   },
 });

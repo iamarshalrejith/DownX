@@ -2,10 +2,30 @@ import Task from "../models/Task.js";
 
 export const getAllTasks = async (req, res) => {
   try {
-    const tasks = await Task.find()
-      .sort({ createdAt: -1 })
-      .populate("owner", "name")
-      .populate("assignedTo", "name");
+    let tasks;
+
+    // If user is a teacher, show tasks they created
+    if (req.user.role === "teacher") {
+      tasks = await Task.find({ owner: req.user._id })
+        .sort({ createdAt: -1 })
+        .populate("owner", "name")
+        .populate("assignedTo", "name");
+    }
+    // If user is a student, show only tasks assigned to them or all students
+    else if (req.user.role === "student") {
+      tasks = await Task.find({
+        $or: [
+          { assignedTo: req.user._id }, // Tasks assigned specifically to this student
+          { assignedToAll: true }, // Tasks assigned to all students
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .populate("owner", "name")
+        .populate("assignedTo", "name");
+    } else {
+      return res.status(403).json({ message: "Invalid user role" });
+    }
+
     res.status(200).json(tasks);
   } catch (error) {
     console.error("Error in getAllTasks controller", error);
@@ -18,7 +38,21 @@ export const getTaskById = async (req, res) => {
     const task = await Task.findById(req.params.id)
       .populate("owner", "name")
       .populate("assignedTo", "name");
+
     if (!task) return res.status(404).json({ message: "Task Not Found" });
+
+    // Authorization check
+    const isOwner = task.owner._id.equals(req.user._id);
+    const isAssignedStudent =
+      req.user.role === "student" &&
+      (task.assignedTo?._id.equals(req.user._id) || task.assignedToAll);
+
+    if (!isOwner && !isAssignedStudent) {
+      return res
+        .status(403)
+        .json({ message: "You don't have access to this task" });
+    }
+
     res.status(200).json(task);
   } catch (error) {
     console.error("Error in getTaskById controller", error);
@@ -51,19 +85,15 @@ export const createTask = async (req, res) => {
     }
 
     if (!assignedTo && !assignedToAll) {
-      return res
-        .status(400)
-        .json({
-          message: "You must assign the task to a student or to all student",
-        });
+      return res.status(400).json({
+        message: "You must assign the task to a student or to all student",
+      });
     }
 
     if (assignedTo && assignedToAll) {
-      return res
-        .status(400)
-        .json({
-          message: "You cannot assign to both a student and all students",
-        });
+      return res.status(400).json({
+        message: "You cannot assign to both a student and all students",
+      });
     }
     // Create the task
     const task = new Task({

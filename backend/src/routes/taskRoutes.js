@@ -12,20 +12,18 @@ const router = express.Router();
 
 // routes or endpoints
 //Get all tasks
-router.get("/", getAllTasks);
+router.get("/", protect, getAllTasks);
 
 //Get task by id
-router.get("/:id", getTaskById);
+router.get("/:id", protect, getTaskById);
 
 //Create a task
-router.post("/",protect, createTask);
+router.post("/", protect, createTask);
 
 // Updating a task
-router.put("/:id",protect, updateTask);
+router.put("/:id", protect, updateTask);
 
 // Deleting a task
-router.delete("/:id",protect, deleteTask);
+router.delete("/:id", protect, deleteTask);
 
 export default router;
-
-

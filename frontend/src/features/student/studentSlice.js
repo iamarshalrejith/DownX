@@ -101,6 +101,8 @@ const studentSlice = createSlice({
       state.loginSuccess = false;
       state.isError = false;
       state.message = "";
+      state.student = null;
+      state.token = null;
     },
   },
   extraReducers: (builder) => {
