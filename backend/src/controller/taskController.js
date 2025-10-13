@@ -177,3 +177,69 @@ export const deleteTask = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+export const completeTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    // Check access -> Students can only complete tasks assigned to them or to all students
+    // Teachers can't mark completion
+    if (req.user.role === "student") {
+      const isAssigned =
+        task.assignedToAll ||
+        (task.assignedTo && task.assignedTo.equals(req.user._id));
+
+      if (!isAssigned) {
+        return res
+          .status(403)
+          .json({ message: "You are not allowed to complete this task" });
+      }
+    } else {
+      return res
+        .status(403)
+        .json({ message: "Only students can mark tasks as completed" });
+    }
+
+    // mark as complete
+    task.isCompleted = true;
+    const updatedTask = await task.save();
+
+    res
+      .status(200)
+      .json({ message: "Task marked as completed", task: updatedTask });
+  } catch (error) {
+    console.error("Error in completeTask controller", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const uncompleteTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Only students can undo completion" });
+    }
+
+    // Check ownership
+    const isAssigned =
+      task.assignedToAll ||
+      (task.assignedTo && task.assignedTo.equals(req.user._id));
+
+    if (!isAssigned) {
+      return res.status(403).json({ message: "You cannot undo this task" });
+    }
+
+    task.isCompleted = false;
+    const updatedTask = await task.save();
+
+    res.status(200).json({ message: "Task reverted to active", task: updatedTask });
+  } catch (error) {
+    console.error("Error in uncompleteTask controller", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};

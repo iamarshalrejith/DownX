@@ -1,6 +1,32 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import taskService from "../../api/taskService.js";
 
+// Thunk - Mark Task as complete
+export const markTaskComplete = createAsyncThunk(
+  "task/markTaskComplete",
+  async ({ id, token }, { rejectWithValue }) => {
+    try {
+      const response = await taskService.markTaskComplete(id, token);
+      return { id, message: response.message };
+    } catch (err) {
+      console.error("Error in markTaskComplete:", err);
+      return rejectWithValue(err.message || "Failed to complete task");
+    }
+  }
+);
+
+// Thunk - Unmark task
+export const unmarkTaskComplete = createAsyncThunk(
+  "task/unmarkTaskComplete",
+  async ({ id, token }, { rejectWithValue }) => {
+    try {
+      const response = await taskService.unmarkTaskComplete(id, token);
+      return { id, message: response.message };
+    } catch (err) {
+      return rejectWithValue(err.message || "Failed to revert task completion");
+    }
+  }
+);
 
 // Thunk: Create Simplified Task (AI + DB Orchestration)
 export const createSimplifiedTask = createAsyncThunk(
@@ -8,7 +34,10 @@ export const createSimplifiedTask = createAsyncThunk(
   async ({ taskData, token }, { rejectWithValue }) => {
     try {
       // Step 1: Call AI Simplification Endpoint
-      const aiResponse = await taskService.simplifyInstruction(taskData.originalInstructions, token);
+      const aiResponse = await taskService.simplifyInstruction(
+        taskData.originalInstructions,
+        token
+      );
 
       if (!aiResponse?.steps || !Array.isArray(aiResponse.steps)) {
         throw new Error("AI did not return valid simplified steps");
@@ -26,7 +55,9 @@ export const createSimplifiedTask = createAsyncThunk(
       return savedTask;
     } catch (error) {
       console.error("Error in createSimplifiedTask:", error);
-      return rejectWithValue(error.message || "Failed to create simplified task");
+      return rejectWithValue(
+        error.message || "Failed to create simplified task"
+      );
     }
   }
 );
@@ -44,7 +75,7 @@ export const getAllTasks = createAsyncThunk(
 );
 
 // Initial State
-  
+
 const initialState = {
   tasks: [],
   currentTask: null,
@@ -92,6 +123,37 @@ const taskSlice = createSlice({
         state.tasks = action.payload;
       })
       .addCase(getAllTasks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      /* --- Mark Task Complete --- */
+      .addCase(markTaskComplete.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(markTaskComplete.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+
+        const task = state.tasks.find((t) => t._id === action.payload.id);
+        if (task) task.isCompleted = true;
+      })
+      .addCase(markTaskComplete.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(unmarkTaskComplete.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(unmarkTaskComplete.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+
+        const task = state.tasks.find((t) => t._id === action.payload.id);
+        if (task) task.isCompleted = false;
+      })
+
+      .addCase(unmarkTaskComplete.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

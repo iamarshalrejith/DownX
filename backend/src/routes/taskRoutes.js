@@ -5,6 +5,8 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  completeTask,
+  uncompleteTask
 } from "../controller/taskController.js";
 import { protect } from "../middleware/authmiddleware.js";
 
@@ -25,5 +27,12 @@ router.put("/:id", protect, updateTask);
 
 // Deleting a task
 router.delete("/:id", protect, deleteTask);
+
+// mark task as completed
+router.put("/complete/:id",protect,completeTask);
+
+// unmark task
+router.put("/uncomplete/:id", protect, uncompleteTask);
+
 
 export default router;

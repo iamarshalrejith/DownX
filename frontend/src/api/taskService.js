@@ -26,7 +26,6 @@ const simplifyInstruction = async (inputText, token) => {
   }
 };
 
-
 // create a new task
 const createTask = async (taskData, token) => {
   try {
@@ -78,11 +77,45 @@ const getTaskById = async (id, token) => {
   }
 };
 
+const markTaskComplete = async (id, token) => {
+  try {
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+
+    const response = await axios.put(`${API_URL}complete/${id}`, {}, config);
+    return response.data;
+  } catch (error) {
+    console.error("Mark Task Complete Error:", error);
+    return Promise.reject(
+      error.response?.data || { message: "Failed to mark task complete" }
+    );
+  }
+};
+
+const unmarkTaskComplete = async (id, token) => {
+  try {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    const response = await axios.put(`${API_URL}uncomplete/${id}`, {}, config);
+    return response.data;
+  } catch (error) {
+    console.error("Unmark Task Complete Error:", error);
+    return Promise.reject(
+      error.response?.data || { message: "Failed to revert task completion" }
+    );
+  }
+};
+
 const taskService = {
   simplifyInstruction,
   createTask,
   getTasks,
   getTaskById,
+  markTaskComplete,
+  unmarkTaskComplete,
 };
 
 export default taskService;
+
