@@ -6,6 +6,7 @@ import {
   reset,
 } from "../features/student/studentSlice.js";
 import { getAllTasks } from "../features/task/taskSlice.js";
+import StudentTaskView from "../modals/StudentTaskView.jsx";
 import Loadingdots from "./Loadingdots.jsx";
 import { toast } from "react-hot-toast";
 
@@ -39,6 +40,10 @@ const ParentDashboardHome = () => {
   const [enrollmentId, setEnrollmentId] = useState("");
   const [visualPin, setVisualPin] = useState(["", "", "", ""]);
 
+  // Modal state
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Error handling
   useEffect(() => {
     if (isError && message) {
@@ -46,7 +51,7 @@ const ParentDashboardHome = () => {
       dispatch(reset());
     }
     if (taskError) toast.error(taskError);
-  }, [isError, message, dispatch,taskError]);
+  }, [isError, message, dispatch, taskError]);
 
   // Fetch students initially
   useEffect(() => {
@@ -56,24 +61,59 @@ const ParentDashboardHome = () => {
     }
   }, [dispatch, user?.token]);
 
+  // Get task info for a specific child
+  const getChildTaskInfo = (childId) => {
+    const childTasks = tasks.filter(
+      (t) => t.assignedToAll || t.assignedTo?._id === childId
+    );
+
+    const completedTasks = childTasks.filter((task) => {
+      if (task.assignedToAll) {
+        // Check if this child completed it
+        return task.completedBy?.some((c) => c.studentId._id === childId);
+      }
+      return task.isCompleted;
+    });
+
+    return {
+      tasks: childTasks,
+      total: childTasks.length,
+      completed: completedTasks.length,
+      pending: childTasks.length - completedTasks.length,
+    };
+  };
+
   // Update linked children whenever myStudents or user.studentIds changes
   useEffect(() => {
     if (user?.studentIds && myStudents.length > 0) {
       const linkedChildren = myStudents.filter((s) =>
         user.studentIds.includes(s._id)
       );
-      // attach filtered tasks for each child
+
+      // Attach filtered tasks with completion info for each child
       const withTasks = linkedChildren.map((child) => {
-        const childTasks = tasks.filter(
-          (t) => t.assignedToAll || t.assignedTo?._id === child._id
-        );
-        return { ...child, tasks: childTasks };
+        const taskInfo = getChildTaskInfo(child._id);
+        return {
+          ...child,
+          ...taskInfo,
+        };
       });
       setChildren(withTasks);
     } else {
       setChildren([]);
     }
   }, [user, myStudents, tasks]);
+
+  // Calculate overall statistics
+  const getOverallStats = () => {
+    const totalTasks = children.reduce((sum, c) => sum + c.total, 0);
+    const totalCompleted = children.reduce((sum, c) => sum + c.completed, 0);
+    const totalPending = children.reduce((sum, c) => sum + c.pending, 0);
+
+    return { totalTasks, totalCompleted, totalPending };
+  };
+
+  const stats = getOverallStats();
 
   // Handle visual PIN taps
   const handlePinTap = (index) => {
@@ -103,15 +143,24 @@ const ParentDashboardHome = () => {
     }
 
     try {
-      // Link child; Redux slice will automatically push new student to myStudents
       await dispatch(linkStudent({ enrollmentId, visualPin })).unwrap();
-
       toast.success("Child linked successfully!");
       setEnrollmentId("");
       setVisualPin(["", "", "", ""]);
     } catch (err) {
       toast.error(err?.message || "Failed to link child");
     }
+  };
+
+  // Modal handlers
+  const handleChildClick = (child) => {
+    setSelectedStudent(child);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setSelectedStudent(null), 300);
   };
 
   if (isLoading || taskLoading) {
@@ -133,47 +182,102 @@ const ParentDashboardHome = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
             <h2 className="text-gray-600 font-medium mb-2">Total Children</h2>
             <p className="text-4xl font-bold text-indigo-700">
               {children.length}
             </p>
           </div>
-          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg">
-            <h2 className="text-gray-600 font-medium mb-2">
-              Total Tasks (All Children)
-            </h2>
+
+          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
+            <h2 className="text-gray-600 font-medium mb-2">Total Tasks</h2>
             <p className="text-4xl font-bold text-indigo-700">
-              {children.reduce((sum, c) => sum + (c.tasks?.length || 0), 0)}
+              {stats.totalTasks}
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-green-100 shadow-lg hover:shadow-xl transition">
+            <h2 className="text-gray-600 font-medium mb-2">Completed</h2>
+            <p className="text-4xl font-bold text-green-600">
+              {stats.totalCompleted}
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-orange-100 shadow-lg hover:shadow-xl transition">
+            <h2 className="text-gray-600 font-medium mb-2">Pending</h2>
+            <p className="text-4xl font-bold text-orange-600">
+              {stats.totalPending}
             </p>
           </div>
         </div>
 
-        {/* Children List */}
+        {/* Children List with Task Progress */}
         <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-md">
           <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
             👧 Child Activity
           </h2>
           {children.length > 0 ? (
-            <ul className="space-y-3">
-              {children.map((child) => (
-                <li
-                  key={child._id}
-                  className="border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:bg-indigo-50/50 transition"
-                >
-                  <span className="font-medium text-gray-800 text-lg">
-                    {child.name}
-                  </span>
-                  <span className="text-gray-500 text-sm">
-                    {child.tasks?.length
-                      ? `${child.tasks.length} task${
-                          child.tasks.length > 1 ? "s" : ""
-                        } assigned`
-                      : "No tasks yet"}
-                  </span>
-                </li>
-              ))}
+            <ul className="space-y-4">
+              {children.map((child) => {
+                const completionRate =
+                  child.total > 0
+                    ? Math.round((child.completed / child.total) * 100)
+                    : 0;
+
+                return (
+                  <li
+                    key={child._id}
+                    onClick={() => handleChildClick(child)} // Modal trigger
+                    className="border border-gray-200 rounded-xl p-5 hover:bg-indigo-50/50 transition cursor-pointer"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                      {/* Child Info */}
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800 text-lg mb-2">
+                          {child.name}
+                        </h3>
+
+                        {child.total > 0 ? (
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-gray-600">
+                              {child.total} task
+                              {child.total !== 1 ? "s" : ""}
+                            </span>
+                            <span className="text-green-600 font-medium">
+                              ✓ {child.completed} completed
+                            </span>
+                            {child.pending > 0 && (
+                              <span className="text-orange-600">
+                                ⏳ {child.pending} pending
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 text-sm">
+                            No tasks assigned yet
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Progress Bar */}
+                      {child.total > 0 && (
+                        <div className="flex flex-col items-end sm:ml-4">
+                          <span className="text-sm font-semibold text-indigo-700 mb-2">
+                            {completionRate}% Complete
+                          </span>
+                          <div className="w-full sm:w-32 h-3 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
+                              style={{ width: `${completionRate}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-gray-500 text-center py-4">
@@ -237,6 +341,14 @@ const ParentDashboardHome = () => {
           </form>
         </div>
       </div>
+
+      {/* Student Task Modal */}
+      <StudentTaskView
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        student={selectedStudent}
+        tasks={tasks}
+      />
     </div>
   );
 };

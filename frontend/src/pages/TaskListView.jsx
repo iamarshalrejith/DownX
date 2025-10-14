@@ -1,36 +1,51 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllTasks } from "../features/task/taskSlice.js";
 import { getStudents } from "../features/student/studentSlice.js"; 
 import Loadingdots from "../components/Loadingdots.jsx";
 import toast from "react-hot-toast";
+import TaskModal from "../modals/TaskModal.jsx";
 import { Link } from "react-router-dom";
 
 const TaskListView = () => {
   const dispatch = useDispatch();
-
   const { tasks = [], loading, error } = useSelector((state) => state.task);
   const { myStudents = [] } = useSelector((state) => state.students); 
   const { user } = useSelector((state) => state.auth);
 
-  // Multi-fetch (tasks + students)
+  // Modal state
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Multi-fetch tasks + students
   useEffect(() => {
     if (user?.token) {
-      dispatch(getAllTasks(user.token)); 
-      dispatch(getStudents(user.token)); 
+      dispatch(getAllTasks(user.token));
+      dispatch(getStudents(user.token));
     }
   }, [dispatch, user?.token]);
 
-  //  Show toast on error
+  // Show toast on error
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
 
-  //  Helper: Find student name
+  // Helper: Find student name
   const getStudentName = (task) => {
     if (task.assignedToAll) return "All Students";
     const student = myStudents.find((s) => s._id === task.assignedTo?._id);
     return student ? student.name : "All Students";
+  };
+
+  // Modal handlers
+  const openModal = (task) => {
+    setSelectedTask(task);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setSelectedTask(null);
+    setIsModalOpen(false);
   };
 
   return (
@@ -71,12 +86,9 @@ const TaskListView = () => {
                     <h2 className="text-xl font-semibold text-gray-800 mb-1">
                       {task.title}
                     </h2>
-
-                    {/*  Student Name Display */}
                     <p className="text-sm text-indigo-600 mb-1">
                       Assigned to: <span className="font-medium">{getStudentName(task)}</span>
                     </p>
-
                     <p className="text-gray-500 text-sm">
                       {task.description
                         ? task.description.slice(0, 150) +
@@ -84,12 +96,14 @@ const TaskListView = () => {
                         : "No description provided."}
                     </p>
                   </div>
-                  <Link
-                    to={`/dashboard/tasks/${task._id}`}
+
+                  {/* Open modal button */}
+                  <button
+                    onClick={() => openModal(task)}
                     className="text-indigo-600 font-medium hover:underline ml-4"
                   >
                     View
-                  </Link>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -100,6 +114,9 @@ const TaskListView = () => {
           )}
         </>
       )}
+
+      {/* Task Modal */}
+      {isModalOpen && <TaskModal task={selectedTask} onClose={closeModal} />}
     </div>
   );
 };

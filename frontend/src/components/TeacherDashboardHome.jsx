@@ -1,14 +1,14 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getStudents, reset } from "../features/student/studentSlice.js";
 import { getAllTasks } from "../features/task/taskSlice.js";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Loadingdots from "./Loadingdots.jsx";
+import StudentTaskView from "../modals/StudentTaskView.jsx";
 import { toast } from "react-hot-toast";
 
 const TeacherDashboardHome = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
 
   const {
     myStudents = [],
@@ -24,6 +24,10 @@ const TeacherDashboardHome = () => {
   } = useSelector((state) => state.task || {});
   const { user } = useSelector((state) => state.auth);
 
+  // Modal state
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Fetch students when teacher is logged in
   useEffect(() => {
     if (user?.token) {
@@ -32,10 +36,10 @@ const TeacherDashboardHome = () => {
     }
   }, [dispatch, user?.token]);
 
-  // handle any task fetch errors
-  useEffect(()=> {
-    if(taskError) toast.error(taskError);
-  },[taskError]);
+  // Handle task fetch errors
+  useEffect(() => {
+    if (taskError) toast.error(taskError);
+  }, [taskError]);
 
   // Show toast on error and reset state
   useEffect(() => {
@@ -45,7 +49,66 @@ const TeacherDashboardHome = () => {
     }
   }, [isError, message, dispatch]);
 
-  // Show loader while fetching data (tasks and students)
+  // Calculate task statistics
+  const getTaskStats = () => {
+    const totalTasks = tasks.length;
+    const assignedToAllTasks = tasks.filter((t) => t.assignedToAll).length;
+    const specificStudentTasks = tasks.filter(
+      (t) => t.assignedTo && !t.assignedToAll
+    ).length;
+
+    const totalCompletions = tasks.reduce((sum, task) => {
+      if (task.assignedToAll) {
+        return sum + (task.completedBy?.length || 0);
+      } else if (task.isCompleted) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+
+    return {
+      totalTasks,
+      assignedToAllTasks,
+      specificStudentTasks,
+      totalCompletions,
+    };
+  };
+
+  // Get tasks assigned to a specific student
+  const getStudentTaskInfo = (studentId) => {
+    const studentTasks = tasks.filter(
+      (task) => task.assignedTo?._id === studentId || task.assignedToAll
+    );
+
+    const completedTasks = studentTasks.filter((task) => {
+      if (task.assignedToAll) {
+        return task.completedBy?.some((c) => c.studentId._id === studentId);
+      }
+      return task.isCompleted;
+    });
+
+    return {
+      total: studentTasks.length,
+      completed: completedTasks.length,
+      pending: studentTasks.length - completedTasks.length,
+    };
+  };
+
+  // Handle student click - open modal
+  const handleStudentClick = (student) => {
+    setSelectedStudent(student);
+    setIsModalOpen(true);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setSelectedStudent(null), 300); // Delay to allow animation
+  };
+
+  const stats = getTaskStats();
+
+  // Show loader while fetching data
   if (isLoading || taskLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -74,7 +137,7 @@ const TeacherDashboardHome = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
             <h2 className="text-gray-600 font-medium mb-2">Total Students</h2>
             <p className="text-4xl font-bold text-indigo-700">
@@ -84,11 +147,39 @@ const TeacherDashboardHome = () => {
 
           <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
             <h2 className="text-gray-600 font-medium mb-2">Total Tasks</h2>
-            <p className="text-4xl font-bold text-indigo-700">{tasks.length}</p>
+            <p className="text-4xl font-bold text-indigo-700">
+              {stats.totalTasks}
+            </p>
+            <div className="mt-2 text-sm text-gray-600">
+              <div>All Students: {stats.assignedToAllTasks}</div>
+              <div>Individual: {stats.specificStudentTasks}</div>
+            </div>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-green-100 shadow-lg hover:shadow-xl transition">
+            <h2 className="text-gray-600 font-medium mb-2">
+              Total Completions
+            </h2>
+            <p className="text-4xl font-bold text-green-600">
+              {stats.totalCompletions}
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-purple-100 shadow-lg hover:shadow-xl transition">
+            <h2 className="text-gray-600 font-medium mb-2">Avg Completion</h2>
+            <p className="text-4xl font-bold text-purple-600">
+              {stats.totalTasks > 0
+                ? `${Math.round(
+                    (stats.totalCompletions /
+                      (stats.totalTasks * Math.max(myStudents.length, 1))) *
+                      100
+                  )}%`
+                : "0%"}
+            </p>
           </div>
         </div>
 
-        {/* Students List */}
+        {/* Students List with Task Details */}
         <div className="p-6 rounded-2xl bg-white/80 backdrop-blur-md border border-indigo-100 shadow-md">
           <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
             👩‍🎓 Your Students
@@ -96,24 +187,58 @@ const TeacherDashboardHome = () => {
 
           {myStudents.length > 0 ? (
             <ul className="space-y-3">
-              {myStudents.map((student) => (
-                <li
-                  key={student._id}
-                  onClick={() => navigate(`/dashboard/students/${student._id}`)} // still fine for dynamic links
-                  className="border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:bg-indigo-50/60 transition cursor-pointer"
-                >
-                  <span className="font-medium text-gray-800 text-lg">
-                    {student.name}
-                  </span>
-                  <span className="text-gray-500 text-sm">
-                    {student.tasks?.length
-                      ? `${student.tasks.length} task${
-                          student.tasks.length > 1 ? "s" : ""
-                        }`
-                      : "No tasks yet"}
-                  </span>
-                </li>
-              ))}
+              {myStudents.map((student) => {
+                const taskInfo = getStudentTaskInfo(student._id);
+                const completionRate =
+                  taskInfo.total > 0
+                    ? Math.round((taskInfo.completed / taskInfo.total) * 100)
+                    : 0;
+
+                return (
+                  <li
+                    key={student._id}
+                    onClick={() => handleStudentClick(student)}
+                    className="border border-gray-200 rounded-xl p-4 hover:bg-indigo-50/60 transition cursor-pointer"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <span className="font-medium text-gray-800 text-lg block">
+                          {student.name}
+                        </span>
+                        <div className="flex items-center gap-4 mt-2 text-sm">
+                          <span className="text-gray-600">
+                            {taskInfo.total} task
+                            {taskInfo.total !== 1 ? "s" : ""}
+                          </span>
+                          <span className="text-green-600 font-medium">
+                            ✓ {taskInfo.completed} completed
+                          </span>
+                          {taskInfo.pending > 0 && (
+                            <span className="text-orange-600">
+                              ⏳ {taskInfo.pending} pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Completion Progress Bar */}
+                      {taskInfo.total > 0 && (
+                        <div className="ml-4 flex flex-col items-end">
+                          <span className="text-sm font-semibold text-indigo-700 mb-1">
+                            {completionRate}%
+                          </span>
+                          <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all duration-300"
+                              style={{ width: `${completionRate}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-gray-500 text-center py-4">
@@ -121,7 +246,61 @@ const TeacherDashboardHome = () => {
             </p>
           )}
         </div>
+
+        {/* Recent Tasks Overview */}
+        {tasks.length > 0 && (
+          <div className="p-6 rounded-2xl bg-white/80 backdrop-blur-md border border-indigo-100 shadow-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold text-indigo-700">
+                📋 Recent Tasks
+              </h2>
+              <Link
+                to="/dashboard/tasks"
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+              >
+                View All →
+              </Link>
+            </div>
+
+            <div className="space-y-3">
+              {tasks.slice(0, 5).map((task) => (
+                <div
+                  key={task._id}
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-800">
+                        {task.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {task.assignedToAll
+                          ? `All Students (${task.completedBy?.length || 0}/${
+                              myStudents.length
+                            } completed)`
+                          : `${task.assignedTo?.name || "Unknown"} ${
+                              task.isCompleted ? "✓ Completed" : "⏳ Pending"
+                            }`}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {new Date(task.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Student Task Modal */}
+      <StudentTaskView
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        student={selectedStudent}
+        tasks={tasks}
+      />
     </div>
   );
 };

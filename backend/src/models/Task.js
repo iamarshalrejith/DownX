@@ -35,6 +35,19 @@ const taskSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    completedBy: [
+      {
+        studentId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Student",
+          required: true,
+        },
+        completedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
 
     // Stores the original instruction text sent to Gemini (optional)
     originalInstructions: {
