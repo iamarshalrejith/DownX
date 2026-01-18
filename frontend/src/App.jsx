@@ -12,6 +12,7 @@ import RoleSelectionPage from "./pages/RoleSelectionPage";
 import StudentLoginPage from "./pages/StudentLoginPage";
 import TaskListView from "./pages/TaskListView";
 import CreateTaskPage from "./pages/CreateTaskPage";
+import FaceTest from "./pages/dev/FaceTest"
 import { useSelector } from "react-redux";
 
 // Protected dashboard route wrapper
@@ -47,6 +48,8 @@ const App = () => {
       </Route>
 
       <Route path="/student-dashboard" element={<StudentDashboard />} />
+        {/* DEV ONLY ROUTE */}
+      <Route path="/dev/face-test" element={<FaceTest />} />
     </Routes>
   );
 };
