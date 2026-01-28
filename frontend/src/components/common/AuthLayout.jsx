@@ -36,7 +36,7 @@ const AuthLayout = ({ children }) => {
     <div className="min-h-screen flex flex-col md:flex-row w-full relative">
       {/* Left Section */}
       <div className="relative hidden md:flex md:w-1/2 overflow-hidden">
-        {/* ✅ Fixed Back Arrow Button */}
+        {/* Fixed Back Arrow Button */}
         <button
           onClick={() => navigate("/")}
           className="absolute top-4 left-4 z-50 flex items-center justify-center 

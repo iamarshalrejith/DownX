@@ -8,6 +8,33 @@ import StudentTaskView from "../modals/StudentTaskView.jsx";
 import { toast } from "react-hot-toast";
 
 const TeacherDashboardHome = () => {
+  // helper function
+  const handleEnableFaceEnrollment = async (studentId) => {
+    try {
+      const res = await fetch(
+        `/api/students/${studentId}/face-enroll-session`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message);
+
+      const enrollLink = `${window.location.origin}/face-enroll?token=${data.enrollmentToken}`;
+
+      navigator.clipboard.writeText(enrollLink);
+
+      toast.success("Face enrollment link copied!");
+    } catch (err) {
+      toast.error(err.message || "Failed to enable face enrollment");
+    }
+  };
+
   const dispatch = useDispatch();
 
   const {
@@ -54,7 +81,7 @@ const TeacherDashboardHome = () => {
     const totalTasks = tasks.length;
     const assignedToAllTasks = tasks.filter((t) => t.assignedToAll).length;
     const specificStudentTasks = tasks.filter(
-      (t) => t.assignedTo && !t.assignedToAll
+      (t) => t.assignedTo && !t.assignedToAll,
     ).length;
 
     const totalCompletions = tasks.reduce((sum, task) => {
@@ -77,7 +104,7 @@ const TeacherDashboardHome = () => {
   // Get tasks assigned to a specific student
   const getStudentTaskInfo = (studentId) => {
     const studentTasks = tasks.filter(
-      (task) => task.assignedTo?._id === studentId || task.assignedToAll
+      (task) => task.assignedTo?._id === studentId || task.assignedToAll,
     );
 
     const completedTasks = studentTasks.filter((task) => {
@@ -172,7 +199,7 @@ const TeacherDashboardHome = () => {
                 ? `${Math.round(
                     (stats.totalCompletions /
                       (stats.totalTasks * Math.max(myStudents.length, 1))) *
-                      100
+                      100,
                   )}%`
                 : "0%"}
             </p>
@@ -201,10 +228,12 @@ const TeacherDashboardHome = () => {
                     className="border border-gray-200 rounded-xl p-4 hover:bg-indigo-50/60 transition cursor-pointer"
                   >
                     <div className="flex justify-between items-center">
+                      {/* Left side: student info */}
                       <div className="flex-1">
                         <span className="font-medium text-gray-800 text-lg block">
                           {student.name}
                         </span>
+
                         <div className="flex items-center gap-4 mt-2 text-sm">
                           <span className="text-gray-600">
                             {taskInfo.total} task
@@ -221,20 +250,32 @@ const TeacherDashboardHome = () => {
                         </div>
                       </div>
 
-                      {/* Completion Progress Bar */}
-                      {taskInfo.total > 0 && (
-                        <div className="ml-4 flex flex-col items-end">
-                          <span className="text-sm font-semibold text-indigo-700 mb-1">
-                            {completionRate}%
-                          </span>
-                          <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all duration-300"
-                              style={{ width: `${completionRate}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      {/* Right side: button + progress */}
+                      <div className="ml-4 flex flex-col items-end gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEnableFaceEnrollment(student._id);
+                          }}
+                          className="text-sm bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition"
+                        >
+                          Enable Face Login
+                        </button>
+
+                        {taskInfo.total > 0 && (
+                          <>
+                            <span className="text-sm font-semibold text-indigo-700">
+                              {completionRate}%
+                            </span>
+                            <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all duration-300"
+                                style={{ width: `${completionRate}%` }}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </li>
                 );
