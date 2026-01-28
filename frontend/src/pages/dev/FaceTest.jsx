@@ -7,7 +7,33 @@ const FaceTest = () => {
   const faceLandmarkerRef = useRef(null);
   const lastDetectionTimeRef = useRef(0);
   const DETECTION_INTERVAL = 1000; // 1 second
+  const [faceVector, setFaceVector] = useState(null);
 
+  // helper function 1
+  const landmarksToVector = (landmarks) => {
+    const vector = [];
+
+    for (let point of landmarks) {
+      vector.push(point.x);
+      vector.push(point.y);
+      vector.push(point.z);
+    }
+
+    return vector;
+  };
+
+  // helper function 2
+  const normalizeVector = (vector) => {
+    const mean = vector.reduce((sum, val) => sum + val, 0) / vector.length;
+
+    const centered = vector.map((v) => v - mean);
+
+    const magnitude = Math.sqrt(
+      centered.reduce((sum, val) => sum + val * val, 0),
+    );
+
+    return centered.map((v) => v / magnitude);
+  };
 
   // start camera
   useEffect(() => {
@@ -55,44 +81,52 @@ const FaceTest = () => {
 
   // detect face Landmarks
   useEffect(() => {
-  let animationId;
+    let animationId;
 
-  const detect = async () => {
-    if (
-      videoRef.current &&
-      faceLandmarkerRef.current &&
-      videoRef.current.readyState === 4
-    ) {
-      const now = performance.now();
+    const detect = async () => {
+      if (
+        videoRef.current &&
+        faceLandmarkerRef.current &&
+        videoRef.current.readyState === 4
+      ) {
+        const now = performance.now();
 
-      // Throttle detection
-      if (now - lastDetectionTimeRef.current > DETECTION_INTERVAL) {
-        lastDetectionTimeRef.current = now;
+        // Throttle detection
+        if (now - lastDetectionTimeRef.current > DETECTION_INTERVAL) {
+          lastDetectionTimeRef.current = now;
 
-        const results =
-          faceLandmarkerRef.current.detectForVideo(
+          const results = faceLandmarkerRef.current.detectForVideo(
             videoRef.current,
-            now
+            now,
           );
 
-        if (results.faceLandmarks.length > 0) {
-          console.log("Face detected (snapshot)", results.faceLandmarks[0]);
-        } else {
-          console.log("No face detected");
+          if (results.faceLandmarks.length > 0) {
+            const landmarks = results.faceLandmarks[0];
+
+            // capture only once
+            if (!faceVector) {
+              const rawVector = landmarksToVector(landmarks);
+              const normalizedVector = normalizeVector(rawVector);
+
+              setFaceVector(normalizedVector);
+
+              console.log("Face vector captured", normalizedVector.length);
+            }
+          } else {
+            console.log("No face detected");
+          }
         }
       }
-    }
 
-    animationId = requestAnimationFrame(detect);
-  };
+      animationId = requestAnimationFrame(detect);
+    };
 
-  detect();
+    detect();
 
-  return () => {
-    cancelAnimationFrame(animationId);
-  };
-}, [status]);
-
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [status]);
 
   return (
     <div style={{ padding: "20px" }}>
