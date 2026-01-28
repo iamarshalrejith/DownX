@@ -7,7 +7,8 @@ const FaceTest = () => {
   const faceLandmarkerRef = useRef(null);
   const lastDetectionTimeRef = useRef(0);
   const DETECTION_INTERVAL = 1000; // 1 second
-  const [faceVector, setFaceVector] = useState(null);
+  const [faceVectors, setFaceVectors] = useState([]);
+  const MAX_SAMPLES = 5;
 
   // helper function 1
   const landmarksToVector = (landmarks) => {
@@ -33,6 +34,20 @@ const FaceTest = () => {
     );
 
     return centered.map((v) => v / magnitude);
+  };
+
+  // helper function 3
+  const averageVectors = (vectors) => {
+    const length = vectors[0].length;
+    const avg = new Array(length).fill(0);
+
+    for (let vec of vectors) {
+      for (let i = 0; i < length; i++) {
+        avg[i] += vec[i];
+      }
+    }
+
+    return avg.map((v) => v / vectors.length);
   };
 
   // start camera
@@ -104,13 +119,15 @@ const FaceTest = () => {
             const landmarks = results.faceLandmarks[0];
 
             // capture only once
-            if (!faceVector) {
+            if (faceVectors.length < MAX_SAMPLES) {
               const rawVector = landmarksToVector(landmarks);
               const normalizedVector = normalizeVector(rawVector);
 
-              setFaceVector(normalizedVector);
-
-              console.log("Face vector captured", normalizedVector.length);
+              setFaceVectors((prev) => {
+                const updated = [...prev, normalizedVector];
+                console.log(`📸 Sample ${updated.length}/${MAX_SAMPLES}`);
+                return updated;
+              });
             }
           } else {
             console.log("No face detected");
@@ -127,6 +144,14 @@ const FaceTest = () => {
       cancelAnimationFrame(animationId);
     };
   }, [status]);
+
+  useEffect(() => {
+  if (faceVectors.length === MAX_SAMPLES) {
+    const finalVector = averageVectors(faceVectors);
+    console.log("Final averaged face vector", finalVector.length);
+  }
+}, [faceVectors]);
+
 
   return (
     <div style={{ padding: "20px" }}>
