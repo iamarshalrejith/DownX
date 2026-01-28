@@ -2,6 +2,8 @@ import Student from "../models/Student.js";
 import User from "../models/User.js";
 import Counter from "../models/Counter.js";
 import jwt from "jsonwebtoken"
+import FaceEnrollmentSession from "../models/FaceEnrollmentSession.js";
+import generateEnrollmentToken from "../utils/generateEnrollmentToken.js";
 
 // Helper to generate enrollment ID
 export const generateEnrollmentId = async () => {
@@ -151,3 +153,78 @@ export const studentLogin = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// Create face enrollment session (Teacher / Parent)
+export const createFaceEnrollmentSession = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!["teacher", "parent"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { studentId } = req.params;
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Ensure teacher/parent is linked to this student
+    if (!student.caretakers.includes(req.user._id)) {
+      return res.status(403).json({ message: "Not linked to this student" });
+    }
+
+    const token = generateEnrollmentToken();
+
+    const session = await FaceEnrollmentSession.create({
+      studentId: student._id,
+      token,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
+    });
+
+    return res.status(201).json({
+      enrollmentToken: session.token,
+      expiresAt: session.expiresAt,
+    });
+  } catch (error) {
+    console.error("Create face enrollment session error:", error);
+    return res.status(500).json({ message: "Failed to create enrollment session" });
+  }
+};
+
+// Validate face enrollment token
+export const validateFaceEnrollmentToken = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ message: "Token is required" });
+    }
+
+    const session = await FaceEnrollmentSession.findOne({ token });
+
+    if (!session) {
+      return res.status(404).json({ message: "Invalid enrollment token" });
+    }
+
+    if (session.used) {
+      return res.status(410).json({ message: "Token already used" });
+    }
+
+    if (session.expiresAt < new Date()) {
+      return res.status(410).json({ message: "Token expired" });
+    }
+
+    return res.status(200).json({
+      studentId: session.studentId,
+      message: "Token valid",
+    });
+  } catch (error) {
+    console.error("Validate enrollment token error:", error);
+    return res.status(500).json({ message: "Token validation failed" });
+  }
+};
+
