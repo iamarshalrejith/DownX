@@ -5,6 +5,9 @@ const FaceTest = () => {
   const videoRef = useRef(null);
   const [status, setStatus] = useState("Initializing...");
   const faceLandmarkerRef = useRef(null);
+  const lastDetectionTimeRef = useRef(0);
+  const DETECTION_INTERVAL = 1000; // 1 second
+
 
   // start camera
   useEffect(() => {
@@ -52,31 +55,44 @@ const FaceTest = () => {
 
   // detect face Landmarks
   useEffect(() => {
-    let animationId;
+  let animationId;
 
-    const detect = async () => {
-      if (
-        videoRef.current &&
-        faceLandmarkerRef.current &&
-        videoRef.current.readyState === 4
-      ) {
-        const results = faceLandmarkerRef.current.detectForVideo(
-          videoRef.current,
-          performance.now(),
-        );
+  const detect = async () => {
+    if (
+      videoRef.current &&
+      faceLandmarkerRef.current &&
+      videoRef.current.readyState === 4
+    ) {
+      const now = performance.now();
+
+      // Throttle detection
+      if (now - lastDetectionTimeRef.current > DETECTION_INTERVAL) {
+        lastDetectionTimeRef.current = now;
+
+        const results =
+          faceLandmarkerRef.current.detectForVideo(
+            videoRef.current,
+            now
+          );
 
         if (results.faceLandmarks.length > 0) {
-          console.log("Face landmarks:", results.faceLandmarks[0]);
+          console.log("Face detected (snapshot)", results.faceLandmarks[0]);
+        } else {
+          console.log("No face detected");
         }
       }
+    }
 
-      animationId = requestAnimationFrame(detect);
-    };
+    animationId = requestAnimationFrame(detect);
+  };
 
-    detect();
+  detect();
 
-    return () => cancelAnimationFrame(animationId);
-  }, []);
+  return () => {
+    cancelAnimationFrame(animationId);
+  };
+}, [status]);
+
 
   return (
     <div style={{ padding: "20px" }}>
