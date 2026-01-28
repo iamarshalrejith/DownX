@@ -7,6 +7,7 @@ import {
   createFaceEnrollmentSession,
   validateFaceEnrollmentToken,
    completeFaceEnrollment,
+   studentFaceLogin,
 } from "../controller/studentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -36,5 +37,7 @@ router.post(
 router.get("/face-enroll/validate", validateFaceEnrollmentToken);
 
 router.post("/face-enroll/complete", completeFaceEnrollment);
+
+router.post("/face-login", studentFaceLogin);
 
 export default router;

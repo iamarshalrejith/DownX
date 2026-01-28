@@ -12,8 +12,9 @@ import RoleSelectionPage from "./pages/RoleSelectionPage";
 import StudentLoginPage from "./pages/StudentLoginPage";
 import TaskListView from "./pages/TaskListView";
 import CreateTaskPage from "./pages/CreateTaskPage";
-import FaceTest from "./pages/dev/FaceTest"
+import FaceTest from "./pages/dev/FaceTest";
 import FaceEnrollPage from "./pages/FaceEnrollPage";
+import StudentFaceLogin from "./pages/StudentFaceLogin";
 import { useSelector } from "react-redux";
 
 // Protected dashboard route wrapper
@@ -21,10 +22,13 @@ const DashboardRedirect = () => {
   const user = useSelector((state) => state.auth.user);
 
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "teacher") return <Navigate to="/dashboard/teacher" replace />;
-  if (user.role === "parent") return <Navigate to="/dashboard/parent" replace />;
-  if (user.role === "student") return <Navigate to="/student-dashboard" replace />;
-  
+  if (user.role === "teacher")
+    return <Navigate to="/dashboard/teacher" replace />;
+  if (user.role === "parent")
+    return <Navigate to="/dashboard/parent" replace />;
+  if (user.role === "student")
+    return <Navigate to="/student-dashboard" replace />;
+
   return <Navigate to="/login" replace />; // fallback
 };
 
@@ -32,15 +36,20 @@ const App = () => {
   return (
     <Routes>
       <Route path="/" element={<RoleSelectionPage />} />
+
+      {/* Student entry points */}
       <Route path="/student-login" element={<StudentLoginPage />} />
+      <Route path="/student-face-login" element={<StudentFaceLogin />} />
+
+      {/* Auth */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
+      {/* Face enrollment (token-based) */}
       <Route path="/face-enroll" element={<FaceEnrollPage />} />
 
       {/* Dashboard routes */}
       <Route path="/dashboard" element={<TeacherParentDashboard />}>
-        {/* Redirect from /dashboard root */}
         <Route index element={<DashboardRedirect />} />
         <Route path="teacher" element={<TeacherDashboardHome />} />
         <Route path="parent" element={<ParentDashboardHome />} />
@@ -51,7 +60,8 @@ const App = () => {
       </Route>
 
       <Route path="/student-dashboard" element={<StudentDashboard />} />
-        {/* DEV ONLY ROUTE */}
+
+      {/* DEV ONLY */}
       <Route path="/dev/face-test" element={<FaceTest />} />
     </Routes>
   );
