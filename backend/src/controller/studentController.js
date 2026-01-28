@@ -228,3 +228,38 @@ export const validateFaceEnrollmentToken = async (req, res) => {
   }
 };
 
+// Complete face enrollment
+export const completeFaceEnrollment = async (req, res) => {
+  try {
+    const { token, faceEmbedding } = req.body;
+
+    if (!token || !Array.isArray(faceEmbedding)) {
+      return res.status(400).json({ message: "Invalid payload" });
+    }
+
+    const session = await FaceEnrollmentSession.findOne({ token });
+    if (!session) {
+      return res.status(404).json({ message: "Invalid token" });
+    }
+
+    if (session.used || session.expiresAt < new Date()) {
+      return res.status(410).json({ message: "Token expired or used" });
+    }
+
+    const student = await Student.findById(session.studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    student.faceEmbedding = faceEmbedding;
+    await student.save();
+
+    session.used = true;
+    await session.save();
+
+    return res.status(200).json({ message: "Face enrollment completed" });
+  } catch (error) {
+    console.error("Complete face enrollment error:", error);
+    return res.status(500).json({ message: "Enrollment failed" });
+  }
+};

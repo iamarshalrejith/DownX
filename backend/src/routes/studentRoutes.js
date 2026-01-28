@@ -6,6 +6,7 @@ import {
   linkStudentToUser,
   createFaceEnrollmentSession,
   validateFaceEnrollmentToken,
+   completeFaceEnrollment,
 } from "../controller/studentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -33,5 +34,7 @@ router.post(
 
 // validate face enrollment token
 router.get("/face-enroll/validate", validateFaceEnrollmentToken);
+
+router.post("/face-enroll/complete", completeFaceEnrollment);
 
 export default router;
