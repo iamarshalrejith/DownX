@@ -7,13 +7,15 @@ const StudentFaceLogin = () => {
   const navigate = useNavigate();
 
   const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const faceLandmarkerRef = useRef(null);
   const lastDetectionTimeRef = useRef(0);
 
   const [enrollmentId, setEnrollmentId] = useState("");
-  const [status, setStatus] = useState("idle"); 
+  const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [faceVectors, setFaceVectors] = useState([]);
+  const [attempts, setAttempts] = useState([]);
 
   const DETECTION_INTERVAL = 1000;
   const MAX_SAMPLES = 5;
@@ -54,6 +56,7 @@ const StudentFaceLogin = () => {
 
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
       videoRef.current.srcObject = stream;
     }
 
@@ -67,18 +70,20 @@ const StudentFaceLogin = () => {
 
     async function loadModel() {
       const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm",
       );
 
-      faceLandmarkerRef.current =
-        await FaceLandmarker.createFromOptions(vision, {
+      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(
+        vision,
+        {
           baseOptions: {
             modelAssetPath:
               "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
           },
           runningMode: "VIDEO",
           numFaces: 1,
-        });
+        },
+      );
     }
 
     loadModel();
@@ -104,7 +109,7 @@ const StudentFaceLogin = () => {
 
           const res = faceLandmarkerRef.current.detectForVideo(
             videoRef.current,
-            now
+            now,
           );
 
           if (res.faceLandmarks.length && faceVectors.length < MAX_SAMPLES) {
@@ -131,21 +136,45 @@ const StudentFaceLogin = () => {
   useEffect(() => {
     if (faceVectors.length === MAX_SAMPLES) {
       const finalVector = averageVectors(faceVectors);
-      setStatus("verifying");
 
-      axios
-        .post("/api/students/face-login", {
-          enrollmentId,
-          faceEmbedding: finalVector,
-        })
-        .then((res) => {
-          localStorage.setItem("studentToken", res.data.token);
-          navigate("/student-dashboard");
-        })
-        .catch(() => {
-          setError("Face not recognized. Please try Visual PIN.");
-          setStatus("error");
-        });
+      setAttempts((prev) => {
+        const next = [...prev, finalVector];
+
+        // Only verify after 2 attempts
+        if (next.length === 2) {
+          const smoothedVector = averageVectors(next);
+          setStatus("verifying");
+
+          axios
+            .post("/api/students/face-login", {
+              enrollmentId,
+              faceEmbedding: smoothedVector,
+            })
+            .then((res) => {
+              //
+              if (streamRef.current) {
+                streamRef.current.getTracks().forEach((track) => track.stop());
+                streamRef.current = null;
+              }
+
+              localStorage.setItem("studentToken", res.data.token);
+              navigate("/student-dashboard");
+            })
+
+            .catch(() => {
+              setError(
+                "Face not recognized. Please try again or use Visual PIN.",
+              );
+              setStatus("error");
+            });
+        } else {
+          // reset for next attempt
+          setFaceVectors([]);
+          lastDetectionTimeRef.current = 0;
+        }
+
+        return next;
+      });
     }
   }, [faceVectors, enrollmentId, navigate]);
 
@@ -160,6 +189,15 @@ const StudentFaceLogin = () => {
     setFaceVectors([]);
     setStatus("scanning");
   };
+
+  useEffect(() => {
+  return () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+}, []);
 
   if (status === "verifying") {
     return <p>Verifying face…</p>;
@@ -176,40 +214,84 @@ const StudentFaceLogin = () => {
     );
   }
 
+
+
+
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Student Face Login</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-indigo-100">
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+        <h2 className="text-2xl font-bold text-indigo-700 mb-4">
+          Student Face Login
+        </h2>
 
-      {status === "idle" && (
-        <>
-          <input
-            type="text"
-            placeholder="Enrollment ID"
-            value={enrollmentId}
-            onChange={(e) => setEnrollmentId(e.target.value)}
-          />
-          <br /><br />
-          <button onClick={startFaceLogin}>Start Face Login</button>
-          {error && <p style={{ color: "red" }}>{error}</p>}
-        </>
-      )}
+        {status === "idle" && (
+          <>
+            <input
+              type="text"
+              placeholder="Enrollment ID"
+              value={enrollmentId}
+              onChange={(e) => setEnrollmentId(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg mb-4 text-center"
+            />
 
-      {status === "scanning" && (
-        <>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            width={320}
-            height={240}
-            style={{ borderRadius: 12, border: "2px solid #ccc" }}
-          />
-          <p>
-            Capturing face… {faceVectors.length}/{MAX_SAMPLES}
-          </p>
-        </>
-      )}
+            <button
+              onClick={startFaceLogin}
+              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition"
+            >
+              Start Face Login
+            </button>
+
+            {error && <p className="text-red-500 mt-3">{error}</p>}
+          </>
+        )}
+
+        {status === "scanning" && (
+          <div className="flex flex-col items-center justify-center mt-6">
+            <div className="relative w-64 h-64 rounded-full overflow-hidden border-4 border-indigo-500 shadow-xl bg-black">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover scale-x-[-1]"
+              />
+
+              {/* Face guide overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-40 h-40 rounded-full border-2 border-dashed border-white/70" />
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm font-medium text-indigo-700">
+              Capturing face… {faceVectors.length}/{MAX_SAMPLES}
+            </p>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Hold still • Face the camera • Good lighting
+            </p>
+
+            <p className="text-xs text-gray-400 mt-1">
+              Attempt {attempts.length + 1}/2
+            </p>
+          </div>
+        )}
+
+        {status === "verifying" && (
+          <p className="text-indigo-700 font-medium mt-6">Verifying face…</p>
+        )}
+
+        {status === "error" && (
+          <div className="mt-4">
+            <p className="text-red-500 mb-3">{error}</p>
+            <button
+              onClick={() => navigate("/student-login")}
+              className="text-indigo-600 underline"
+            >
+              Use Visual PIN instead
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

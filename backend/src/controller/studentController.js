@@ -118,13 +118,11 @@ export const linkStudentToUser = async (req, res) => {
       { new: true },
     ).select("-password");
 
-    return res
-      .status(200)
-      .json({
-        message: "Student linked successfully",
-        user: updatedUser,
-        student,
-      });
+    return res.status(200).json({
+      message: "Student linked successfully",
+      user: updatedUser,
+      student,
+    });
   } catch (error) {
     console.error("Error linking student:", error);
     return res
@@ -300,8 +298,9 @@ export const studentFaceLogin = async (req, res) => {
     }
 
     const similarity = cosineSimilarity(student.faceEmbedding, faceEmbedding);
+  
 
-    const THRESHOLD = 0.85; // safe default
+    const THRESHOLD = 0.72; // safe default
 
     if (similarity < THRESHOLD) {
       return res.status(401).json({ message: "Face mismatch" });

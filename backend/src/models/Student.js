@@ -24,14 +24,19 @@ const studentSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    visualPin : {
+    visualPin: {
       type: [String],
       default: [],
-    }
+    },
+    faceEmbedding: {
+      type: [Number],
+      default: null,
+      select: false, // hidden by default for security
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Student = mongoose.model("Student", studentSchema);
