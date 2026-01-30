@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
@@ -11,7 +11,8 @@ const StudentFaceLogin = () => {
   const faceLandmarkerRef = useRef(null);
   const lastDetectionTimeRef = useRef(0);
 
-  const [enrollmentId, setEnrollmentId] = useState("");
+  const [params] = useSearchParams();
+  const enrollmentId = params.get("enrollmentId");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [faceVectors, setFaceVectors] = useState([]);
@@ -191,13 +192,13 @@ const StudentFaceLogin = () => {
   };
 
   useEffect(() => {
-  return () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
-}, []);
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
 
   if (status === "verifying") {
     return <p>Verifying face…</p>;
@@ -214,9 +215,6 @@ const StudentFaceLogin = () => {
     );
   }
 
-
-
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-indigo-100">
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
@@ -226,13 +224,10 @@ const StudentFaceLogin = () => {
 
         {status === "idle" && (
           <>
-            <input
-              type="text"
-              placeholder="Enrollment ID"
-              value={enrollmentId}
-              onChange={(e) => setEnrollmentId(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg mb-4 text-center"
-            />
+            <p className="text-sm text-gray-600 mb-4">
+              Enrollment ID:{" "}
+              <span className="font-semibold">{enrollmentId}</span>
+            </p>
 
             <button
               onClick={startFaceLogin}

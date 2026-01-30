@@ -322,3 +322,31 @@ export const studentFaceLogin = async (req, res) => {
     return res.status(500).json({ message: "Face login failed" });
   }
 };
+
+export const checkFaceLoginAvailable = async (req, res) => {
+  const { enrollmentId } = req.body;
+
+  const student = await Student.findOne({ enrollmentId })
+    .select("+faceEmbedding");
+
+  if (!student || !student.faceEmbedding) {
+    return res.json({ faceEnabled: false });
+  }
+
+  res.json({ faceEnabled: true });
+};
+
+export const getStudentLoginOptions = async (req, res) => {
+  const { enrollmentId } = req.body;
+
+  const student = await Student.findOne({ enrollmentId })
+    .select("+faceEmbedding");
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  res.json({
+    faceEnabled: !!student.faceEmbedding?.length,
+  });
+};

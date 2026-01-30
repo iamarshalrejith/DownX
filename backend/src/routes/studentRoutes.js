@@ -8,6 +8,8 @@ import {
   validateFaceEnrollmentToken,
    completeFaceEnrollment,
    studentFaceLogin,
+   checkFaceLoginAvailable,
+   getStudentLoginOptions,
 } from "../controller/studentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -39,5 +41,11 @@ router.get("/face-enroll/validate", validateFaceEnrollmentToken);
 router.post("/face-enroll/complete", completeFaceEnrollment);
 
 router.post("/face-login", studentFaceLogin);
+
+router.post("/face-enabled", checkFaceLoginAvailable);
+
+router.post("/login-options", getStudentLoginOptions);
+
+
 
 export default router;
