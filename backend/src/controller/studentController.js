@@ -281,48 +281,61 @@ export const completeFaceEnrollment = async (req, res) => {
 };
 
 // Student face login
-export const studentFaceLogin = async (req, res) => {
+export const studentFaceLogin = async (req, res, next) => {
   try {
-    const { enrollmentId, faceEmbedding } = req.body;
+    const student = req.student;
+    const { faceEmbedding } = req.body;
 
-    if (!enrollmentId || !Array.isArray(faceEmbedding)) {
-      return res.status(400).json({ message: "Invalid payload" });
+    if (!Array.isArray(faceEmbedding)) {
+      return res.status(400).json({
+        message: "Invalid face embedding",
+      });
     }
 
-    const student = await Student.findOne({ enrollmentId }).select(
-      "+faceEmbedding",
+    if (!Array.isArray(student.faceEmbedding)) {
+      return res.status(500).json({
+        message: "Stored face data missing",
+      });
+    }
+
+    const similarity = cosineSimilarity(
+      student.faceEmbedding,
+      faceEmbedding
     );
 
-    if (!student || !student.faceEmbedding) {
-      return res.status(404).json({ message: "Face login not enabled" });
-    }
-
-    const similarity = cosineSimilarity(student.faceEmbedding, faceEmbedding);
-  
-
-    const THRESHOLD = 0.72; // safe default
+    const THRESHOLD = 0.72; // keep your tested value
 
     if (similarity < THRESHOLD) {
-      return res.status(401).json({ message: "Face mismatch" });
+      return res.status(401).json({
+        message: "Face verification failed",
+      });
     }
 
     const token = jwt.sign(
-      { id: student._id, enrollmentId: student.enrollmentId },
+      {
+        id: student._id,
+        enrollmentId: student.enrollmentId,
+        role: "student",
+      },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" },
+      { expiresIn: "2h" }
     );
 
     return res.status(200).json({
       message: "Face login successful",
       token,
-      student,
+      student: {
+        id: student._id,
+        name: student.name,
+        enrollmentId: student.enrollmentId,
+      },
     });
   } catch (error) {
-    console.error("Face login error:", error);
-    return res.status(500).json({ message: "Face login failed" });
+    next(error);
   }
 };
 
+// Check Face Login Available
 export const checkFaceLoginAvailable = async (req, res) => {
   const { enrollmentId } = req.body;
 
@@ -336,6 +349,7 @@ export const checkFaceLoginAvailable = async (req, res) => {
   res.json({ faceEnabled: true });
 };
 
+// Giving Login Options for student
 export const getStudentLoginOptions = async (req, res) => {
   const { enrollmentId } = req.body;
 

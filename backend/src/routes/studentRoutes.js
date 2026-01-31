@@ -13,25 +13,30 @@ import {
 } from "../controller/studentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
+import { rateLimiter } from "../middleware/rateLimiter.js";
+import {roleGuard} from "../middleware/roleGuard.js"
+import {loadStudentByEnrollmentId} from "../middleware/loadStudent.js"
+import {biometricGuard} from "../middleware/biometricGuard.js"
 
 const router = express.Router();
 
 //login student
-router.post('/login',studentLogin)
+router.post('/login', rateLimiter(),studentLogin)
 
 // get students
-router.get('/',protect,getMyStudents)
+router.get('/',protect, roleGuard("teacher", "parent"),getMyStudents)
 
 // Teacher create student 
-router.post("/create", protect, createStudent);
+router.post("/create", protect, roleGuard("teacher"), createStudent);
 
 // Parent link themselves to Student
-router.put("/link", protect, linkStudentToUser);
+router.put("/link", protect,roleGuard("parent"), linkStudentToUser);
 
 // face enrollment session
 router.post(
   "/:studentId/face-enroll-session",
   protect,
+  roleGuard("teacher"),
   createFaceEnrollmentSession
 );
 
@@ -40,11 +45,17 @@ router.get("/face-enroll/validate", validateFaceEnrollmentToken);
 
 router.post("/face-enroll/complete", completeFaceEnrollment);
 
-router.post("/face-login", studentFaceLogin);
+router.post(
+  "/face-login",
+  rateLimiter(),
+  loadStudentByEnrollmentId,
+  biometricGuard,
+  studentFaceLogin
+);
 
-router.post("/face-enabled", checkFaceLoginAvailable);
+router.post("/face-enabled",rateLimiter(),checkFaceLoginAvailable);
 
-router.post("/login-options", getStudentLoginOptions);
+router.post("/login-options",rateLimiter(), getStudentLoginOptions);
 
 
 
