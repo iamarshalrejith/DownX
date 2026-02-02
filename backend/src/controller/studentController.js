@@ -298,10 +298,7 @@ export const studentFaceLogin = async (req, res, next) => {
       });
     }
 
-    const similarity = cosineSimilarity(
-      student.faceEmbedding,
-      faceEmbedding
-    );
+    const similarity = cosineSimilarity(student.faceEmbedding, faceEmbedding);
 
     const THRESHOLD = 0.72; // keep your tested value
 
@@ -318,7 +315,7 @@ export const studentFaceLogin = async (req, res, next) => {
         role: "student",
       },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" }
+      { expiresIn: "2h" },
     );
 
     return res.status(200).json({
@@ -339,8 +336,9 @@ export const studentFaceLogin = async (req, res, next) => {
 export const checkFaceLoginAvailable = async (req, res) => {
   const { enrollmentId } = req.body;
 
-  const student = await Student.findOne({ enrollmentId })
-    .select("+faceEmbedding");
+  const student = await Student.findOne({ enrollmentId }).select(
+    "+faceEmbedding",
+  );
 
   if (!student || !student.faceEmbedding) {
     return res.json({ faceEnabled: false });
@@ -353,8 +351,9 @@ export const checkFaceLoginAvailable = async (req, res) => {
 export const getStudentLoginOptions = async (req, res) => {
   const { enrollmentId } = req.body;
 
-  const student = await Student.findOne({ enrollmentId })
-    .select("+faceEmbedding");
+  const student = await Student.findOne({ enrollmentId }).select(
+    "+faceEmbedding",
+  );
 
   if (!student) {
     return res.status(404).json({ message: "Student not found" });
@@ -363,4 +362,85 @@ export const getStudentLoginOptions = async (req, res) => {
   res.json({
     faceEnabled: !!student.faceEmbedding?.length,
   });
+};
+
+export const resetStudentPin = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { visualPin } = req.body;
+
+    if (!Array.isArray(visualPin) || visualPin.length === 0) {
+      return res.status(400).json({
+        message: "Valid visual PIN is required",
+      });
+    }
+
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    // Ensure adult is linked to student
+    if (!student.caretakers.includes(req.user._id)) {
+      return res.status(403).json({
+        message: "Not authorized to reset this student's PIN",
+      });
+    }
+
+    student.visualPin = visualPin;
+    await student.save();
+
+    return res.status(200).json({
+      message: "Visual PIN reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset PIN error:", error);
+    return res.status(500).json({
+      message: "Failed to reset PIN",
+    });
+  }
+};
+
+export const toggleFaceAuth = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { enabled } = req.body;
+
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({
+        message: "enabled must be a boolean",
+      });
+    }
+
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    // Ensure adult is linked to student
+    if (!student.caretakers.includes(req.user._id)) {
+      return res.status(403).json({
+        message: "Not authorized to modify this student",
+      });
+    }
+
+    student.faceAuthEnabled = enabled;
+    await student.save();
+
+    return res.status(200).json({
+      message: `Face authentication ${enabled ? "enabled" : "disabled"}`,
+      faceAuthEnabled: student.faceAuthEnabled,
+    });
+  } catch (error) {
+    console.error("Toggle face auth error:", error);
+    return res.status(500).json({
+      message: "Failed to update face authentication",
+    });
+  }
 };

@@ -1,9 +1,7 @@
-import React from 'react'
+import ParentSettings from "./ParentSettings";
 
-const TeacherSettings = () => {
-  return (
-    <div>TeacherSettings</div>
-  )
-}
+const TeacherSettings = (props) => {
+  return <ParentSettings {...props} />;
+};
 
-export default TeacherSettings
+export default TeacherSettings;

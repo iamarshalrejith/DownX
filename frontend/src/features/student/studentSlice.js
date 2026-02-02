@@ -22,10 +22,10 @@ export const studentLogin = createAsyncThunk(
       return thunkAPI.rejectWithValue(
         error.response?.data?.message ||
           error.message ||
-          "Student login failed"
+          "Student login failed",
       );
     }
-  }
+  },
 );
 
 // Get all students linked to user
@@ -37,10 +37,10 @@ export const getStudents = createAsyncThunk(
       return await studentService.getStudents(token);
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.message || error.message || "Failed to fetch students"
+        error.response?.message || error.message || "Failed to fetch students",
       );
     }
-  }
+  },
 );
 
 // Create student (teacher only)
@@ -52,10 +52,10 @@ export const createStudent = createAsyncThunk(
       return await studentService.createStudent(studentData, token);
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.message || error.message || "Failed to create student"
+        error.response?.message || error.message || "Failed to create student",
       );
     }
-  }
+  },
 );
 
 // Link existing student to parent
@@ -66,16 +66,16 @@ export const linkStudent = createAsyncThunk(
       const token = thunkAPI.getState().auth.user.token;
       const data = await studentService.linkStudent(
         { enrollmentId, visualPin },
-        token
+        token,
       );
       thunkAPI.dispatch(updateUser(data.user));
       return data; // { message, user, student }
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.message || error.message || "Failed to link student"
+        error.response?.message || error.message || "Failed to link student",
       );
     }
-  }
+  },
 );
 
 // Slice
@@ -83,6 +83,7 @@ export const linkStudent = createAsyncThunk(
 const initialState = {
   myStudents: [],
   student: null,
+  selectedStudent: null,
   token: null,
   isLoading: false,
   isLinking: false,
@@ -103,6 +104,10 @@ const studentSlice = createSlice({
       state.message = "";
       state.student = null;
       state.token = null;
+      state.selectedStudent = null;
+    },
+    setSelectedStudent: (state, action) => {
+      state.selectedStudent = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -115,6 +120,7 @@ const studentSlice = createSlice({
         state.isLoading = false;
         state.loginSuccess = true;
         state.student = action.payload.student;
+        state.selectedStudent = action.payload.student;
         state.token = action.payload.token;
       })
       .addCase(studentLogin.rejected, (state, action) => {
@@ -130,7 +136,12 @@ const studentSlice = createSlice({
       .addCase(getStudents.fulfilled, (state, action) => {
         state.isLoading = false;
         state.myStudents = action.payload;
+
+        if (!state.selectedStudent && action.payload.length > 0) {
+          state.selectedStudent = action.payload[0];
+        }
       })
+
       .addCase(getStudents.rejected, (state, action) => {
         state.isLoading = false;
         state.isError = true;
@@ -173,6 +184,5 @@ const studentSlice = createSlice({
   },
 });
 
-
-export const { reset } = studentSlice.actions;
+export const { reset, setSelectedStudent } = studentSlice.actions;
 export default studentSlice.reducer;

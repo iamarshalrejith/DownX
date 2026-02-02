@@ -6,38 +6,40 @@ import {
   linkStudentToUser,
   createFaceEnrollmentSession,
   validateFaceEnrollmentToken,
-   completeFaceEnrollment,
-   studentFaceLogin,
-   checkFaceLoginAvailable,
-   getStudentLoginOptions,
+  completeFaceEnrollment,
+  studentFaceLogin,
+  checkFaceLoginAvailable,
+  getStudentLoginOptions,
+  resetStudentPin,
+  toggleFaceAuth,
 } from "../controller/studentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
 import { rateLimiter } from "../middleware/rateLimiter.js";
-import {roleGuard} from "../middleware/roleGuard.js"
-import {loadStudentByEnrollmentId} from "../middleware/loadStudent.js"
-import {biometricGuard} from "../middleware/biometricGuard.js"
+import { roleGuard } from "../middleware/roleGuard.js";
+import { loadStudentByEnrollmentId } from "../middleware/loadStudent.js";
+import { biometricGuard } from "../middleware/biometricGuard.js";
 
 const router = express.Router();
 
 //login student
-router.post('/login', rateLimiter(),studentLogin)
+router.post("/login", rateLimiter(), studentLogin);
 
 // get students
-router.get('/',protect, roleGuard("teacher", "parent"),getMyStudents)
+router.get("/", protect, roleGuard("teacher", "parent"), getMyStudents);
 
-// Teacher create student 
+// Teacher create student
 router.post("/create", protect, roleGuard("teacher"), createStudent);
 
 // Parent link themselves to Student
-router.put("/link", protect,roleGuard("parent"), linkStudentToUser);
+router.put("/link", protect, roleGuard("parent"), linkStudentToUser);
 
 // face enrollment session
 router.post(
   "/:studentId/face-enroll-session",
   protect,
   roleGuard("teacher"),
-  createFaceEnrollmentSession
+  createFaceEnrollmentSession,
 );
 
 // validate face enrollment token
@@ -50,13 +52,25 @@ router.post(
   rateLimiter(),
   loadStudentByEnrollmentId,
   biometricGuard,
-  studentFaceLogin
+  studentFaceLogin,
 );
 
-router.post("/face-enabled",rateLimiter(),checkFaceLoginAvailable);
+router.post("/face-enabled", rateLimiter(), checkFaceLoginAvailable);
 
-router.post("/login-options",rateLimiter(), getStudentLoginOptions);
+router.post("/login-options", rateLimiter(), getStudentLoginOptions);
 
+router.patch(
+  "/:studentId/reset-pin",
+  protect,
+  roleGuard("teacher", "parent"),
+  resetStudentPin,
+);
 
+router.patch(
+  "/:studentId/face-auth",
+  protect,
+  roleGuard("teacher", "parent"),
+  toggleFaceAuth,
+);
 
 export default router;

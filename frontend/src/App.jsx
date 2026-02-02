@@ -15,6 +15,7 @@ import CreateTaskPage from "./pages/CreateTaskPage";
 import FaceTest from "./pages/dev/FaceTest";
 import FaceEnrollPage from "./pages/FaceEnrollPage";
 import StudentFaceLogin from "./pages/StudentFaceLogin";
+import SettingsRouter from "./pages/settings/SettingsRouter";
 import { useSelector } from "react-redux";
 
 // Protected dashboard route wrapper
@@ -57,9 +58,11 @@ const App = () => {
         <Route path="all-students" element={<AllStudentsPage />} />
         <Route path="tasks" element={<TaskListView />} />
         <Route path="tasks/create" element={<CreateTaskPage />} />
+        <Route path="settings" element={<SettingsRouter />} />
       </Route>
 
       <Route path="/student-dashboard" element={<StudentDashboard />} />
+      <Route path="/student-dashboard/settings" element={<SettingsRouter />} />
 
       {/* DEV ONLY */}
       <Route path="/dev/face-test" element={<FaceTest />} />

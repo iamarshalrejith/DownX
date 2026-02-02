@@ -33,6 +33,10 @@ const studentSchema = new mongoose.Schema(
       default: null,
       select: false, // hidden by default for security
     },
+    faceAuthEnabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
