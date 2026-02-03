@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import FaceEnrollmentSession from "../models/FaceEnrollmentSession.js";
 import generateEnrollmentToken from "../utils/generateEnrollmentToken.js";
 import cosineSimilarity from "../utils/vectorSimilarity.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 // Helper to generate enrollment ID
 export const generateEnrollmentId = async () => {
@@ -163,14 +164,23 @@ export const studentLogin = async (req, res) => {
     if (!isPinCorrect) {
       student.loginAttempts += 1;
 
+      let lockTriggered = false;
+
       if (student.loginAttempts >= 5) {
-        student.loginLockUntil = new Date(
-          Date.now() + 5 * 60 * 1000 // 5 minutes
-        );
+        student.loginLockUntil = new Date(Date.now() + 5 * 60 * 1000);
         student.loginAttempts = 0;
+        lockTriggered = true;
       }
 
       await student.save();
+
+      if (lockTriggered) {
+        await logAudit({
+          action: "LOGIN_LOCK_TRIGGERED",
+          req,
+          studentId: student._id,
+        });
+      }
 
       return res.status(401).json({
         message: "Incorrect Visual PIN",
@@ -185,7 +195,7 @@ export const studentLogin = async (req, res) => {
     const token = jwt.sign(
       { id: student._id, enrollmentId: student.enrollmentId },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" }
+      { expiresIn: "2h" },
     );
 
     return res.status(200).json({ student, token });
@@ -196,7 +206,6 @@ export const studentLogin = async (req, res) => {
       .json({ message: "Server error", error: error.message });
   }
 };
-
 
 // Create face enrollment session (Teacher / Parent)
 export const createFaceEnrollmentSession = async (req, res) => {
@@ -298,10 +307,16 @@ export const completeFaceEnrollment = async (req, res) => {
     }
 
     student.faceEmbedding = faceEmbedding;
+    student.faceAuthEnabled = true;
     await student.save();
 
     session.used = true;
     await session.save();
+    await logAudit({
+      action: "FACE_ENROLLMENT_COMPLETE",
+      req,
+      studentId: student._id,
+    });
 
     return res.status(200).json({ message: "Face enrollment completed" });
   } catch (error) {
@@ -335,12 +350,23 @@ export const studentFaceLogin = async (req, res, next) => {
     if (similarity < THRESHOLD) {
       student.loginAttempts += 1;
 
+      let lockTriggered = false;
+
       if (student.loginAttempts >= 5) {
         student.loginLockUntil = new Date(Date.now() + 5 * 60 * 1000);
         student.loginAttempts = 0;
+        lockTriggered = true;
       }
 
       await student.save();
+
+      if (lockTriggered) {
+        await logAudit({
+          action: "LOGIN_LOCK_TRIGGERED",
+          req,
+          studentId: student._id,
+        });
+      }
 
       return res.status(401).json({
         message: "Face verification failed",
@@ -436,6 +462,11 @@ export const resetStudentPin = async (req, res) => {
 
     student.visualPin = visualPin;
     await student.save();
+    await logAudit({
+      action: "PIN_RESET",
+      req,
+      studentId: student._id,
+    });
 
     return res.status(200).json({
       message: "Visual PIN reset successfully",
@@ -476,6 +507,12 @@ export const toggleFaceAuth = async (req, res) => {
 
     student.faceAuthEnabled = enabled;
     await student.save();
+    await logAudit({
+      action: "FACE_AUTH_TOGGLE",
+      req,
+      studentId: student._id,
+      meta: { enabled },
+    });
 
     return res.status(200).json({
       message: `Face authentication ${enabled ? "enabled" : "disabled"}`,
@@ -517,6 +554,11 @@ export const toggleStudentActiveStatus = async (req, res) => {
 
     student.isActive = active;
     await student.save();
+    await logAudit({
+      action: active ? "STUDENT_ACTIVATED" : "STUDENT_DEACTIVATED",
+      req,
+      studentId: student._id,
+    });
 
     return res.status(200).json({
       message: `Student ${active ? "activated" : "deactivated"} successfully`,
