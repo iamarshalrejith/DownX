@@ -143,7 +143,17 @@ export const studentLogin = async (req, res) => {
     }
 
     const student = await Student.findOne({ enrollmentId });
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // BLOCK INACTIVE STUDENTS
+    if (!student.isActive) {
+      return res.status(403).json({
+        message:
+          "This account is currently inactive. Please contact a teacher.",
+      });
+    }
 
     const isPinCorrect =
       Array.isArray(student.visualPin) &&
@@ -155,7 +165,7 @@ export const studentLogin = async (req, res) => {
 
       if (student.loginAttempts >= 5) {
         student.loginLockUntil = new Date(
-          Date.now() + 5 * 60 * 1000, // 5 minutes
+          Date.now() + 5 * 60 * 1000 // 5 minutes
         );
         student.loginAttempts = 0;
       }
@@ -175,7 +185,7 @@ export const studentLogin = async (req, res) => {
     const token = jwt.sign(
       { id: student._id, enrollmentId: student.enrollmentId },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" },
+      { expiresIn: "2h" }
     );
 
     return res.status(200).json({ student, token });
@@ -186,6 +196,7 @@ export const studentLogin = async (req, res) => {
       .json({ message: "Server error", error: error.message });
   }
 };
+
 
 // Create face enrollment session (Teacher / Parent)
 export const createFaceEnrollmentSession = async (req, res) => {
@@ -474,6 +485,47 @@ export const toggleFaceAuth = async (req, res) => {
     console.error("Toggle face auth error:", error);
     return res.status(500).json({
       message: "Failed to update face authentication",
+    });
+  }
+};
+
+export const toggleStudentActiveStatus = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { active } = req.body;
+
+    if (typeof active !== "boolean") {
+      return res.status(400).json({
+        message: "active must be a boolean",
+      });
+    }
+
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    // Ensure adult is linked to student
+    if (!student.caretakers.includes(req.user._id)) {
+      return res.status(403).json({
+        message: "Not authorized to modify this student",
+      });
+    }
+
+    student.isActive = active;
+    await student.save();
+
+    return res.status(200).json({
+      message: `Student ${active ? "activated" : "deactivated"} successfully`,
+      isActive: student.isActive,
+    });
+  } catch (error) {
+    console.error("Toggle student active status error:", error);
+    return res.status(500).json({
+      message: "Failed to update student status",
     });
   }
 };

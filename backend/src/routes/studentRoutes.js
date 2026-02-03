@@ -12,6 +12,7 @@ import {
   getStudentLoginOptions,
   resetStudentPin,
   toggleFaceAuth,
+  toggleStudentActiveStatus
 } from "../controller/studentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -83,5 +84,13 @@ router.patch(
   roleGuard("teacher", "parent"),
   toggleFaceAuth,
 );
+
+router.patch(
+  "/:studentId/active",
+  protect,
+  roleGuard("teacher", "parent"),
+  toggleStudentActiveStatus
+);
+
 
 export default router;
