@@ -19,11 +19,20 @@ import { rateLimiter } from "../middleware/rateLimiter.js";
 import { roleGuard } from "../middleware/roleGuard.js";
 import { loadStudentByEnrollmentId } from "../middleware/loadStudent.js";
 import { biometricGuard } from "../middleware/biometricGuard.js";
+import { checkLoginLock } from "../middleware/checkLoginLock.js";
+
 
 const router = express.Router();
 
 //login student
-router.post("/login", rateLimiter(), studentLogin);
+router.post(
+  "/login",
+  rateLimiter(),
+  loadStudentByEnrollmentId,
+  checkLoginLock,
+  studentLogin
+);
+
 
 // get students
 router.get("/", protect, roleGuard("teacher", "parent"), getMyStudents);
@@ -51,9 +60,11 @@ router.post(
   "/face-login",
   rateLimiter(),
   loadStudentByEnrollmentId,
+  checkLoginLock,
   biometricGuard,
-  studentFaceLogin,
+  studentFaceLogin
 );
+
 
 router.post("/face-enabled", rateLimiter(), checkFaceLoginAvailable);
 

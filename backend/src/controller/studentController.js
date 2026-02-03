@@ -150,8 +150,27 @@ export const studentLogin = async (req, res) => {
       student.visualPin.length === visualPin.length &&
       student.visualPin.every((val, i) => val === visualPin[i]);
 
-    if (!isPinCorrect)
-      return res.status(401).json({ message: "Incorrect Visual PIN" });
+    if (!isPinCorrect) {
+      student.loginAttempts += 1;
+
+      if (student.loginAttempts >= 5) {
+        student.loginLockUntil = new Date(
+          Date.now() + 5 * 60 * 1000, // 5 minutes
+        );
+        student.loginAttempts = 0;
+      }
+
+      await student.save();
+
+      return res.status(401).json({
+        message: "Incorrect Visual PIN",
+      });
+    }
+
+    // SUCCESS - reset lock state
+    student.loginAttempts = 0;
+    student.loginLockUntil = null;
+    await student.save();
 
     const token = jwt.sign(
       { id: student._id, enrollmentId: student.enrollmentId },
@@ -303,10 +322,24 @@ export const studentFaceLogin = async (req, res, next) => {
     const THRESHOLD = 0.72; // keep your tested value
 
     if (similarity < THRESHOLD) {
+      student.loginAttempts += 1;
+
+      if (student.loginAttempts >= 5) {
+        student.loginLockUntil = new Date(Date.now() + 5 * 60 * 1000);
+        student.loginAttempts = 0;
+      }
+
+      await student.save();
+
       return res.status(401).json({
         message: "Face verification failed",
       });
     }
+
+    // SUCCESS - reset lock state
+    student.loginAttempts = 0;
+    student.loginLockUntil = null;
+    await student.save();
 
     const token = jwt.sign(
       {

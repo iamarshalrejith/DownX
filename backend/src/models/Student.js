@@ -37,6 +37,14 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    loginLockUntil: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

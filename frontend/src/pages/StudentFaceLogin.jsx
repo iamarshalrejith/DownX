@@ -21,7 +21,14 @@ const StudentFaceLogin = () => {
   const DETECTION_INTERVAL = 1000;
   const MAX_SAMPLES = 5;
 
-  /* ------------------ Helpers (same as enrollment) ------------------ */
+  // Helpers
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
 
   const landmarksToVector = (landmarks) => {
     const vector = [];
@@ -50,7 +57,7 @@ const StudentFaceLogin = () => {
     return avg.map((v) => v / vectors.length);
   };
 
-  /* ------------------ Start Camera ------------------ */
+  // Start Camera 
 
   useEffect(() => {
     if (status !== "scanning") return;
@@ -64,7 +71,7 @@ const StudentFaceLogin = () => {
     startCamera();
   }, [status]);
 
-  /* ------------------ Load Face Model ------------------ */
+  // Load Face Model 
 
   useEffect(() => {
     if (status !== "scanning") return;
@@ -90,7 +97,7 @@ const StudentFaceLogin = () => {
     loadModel();
   }, [status]);
 
-  /* ------------------ Face Detection Loop ------------------ */
+  // Face Detection Loop 
 
   useEffect(() => {
     if (status !== "scanning") return;
@@ -132,7 +139,7 @@ const StudentFaceLogin = () => {
     return () => cancelAnimationFrame(rafId);
   }, [status, faceVectors]);
 
-  /* ------------------ Send to Backend ------------------ */
+  // Send to Backend 
 
   useEffect(() => {
     if (faceVectors.length === MAX_SAMPLES) {
@@ -163,6 +170,7 @@ const StudentFaceLogin = () => {
             })
 
             .catch(() => {
+              stopCamera();
               setError(
                 "Face not recognized. Please try again or use Visual PIN.",
               );
@@ -179,7 +187,7 @@ const StudentFaceLogin = () => {
     }
   }, [faceVectors, enrollmentId, navigate]);
 
-  /* ------------------ UI ------------------ */
+  // UI
 
   const startFaceLogin = () => {
     if (!enrollmentId.trim()) {
