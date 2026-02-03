@@ -62,11 +62,80 @@ const loginStudent = async ({ enrollmentId, visualPin }) => {
   }
 };
 
+
+// Reset student visual PIN
+const resetStudentPin = async (studentId, visualPin, token) => {
+  try {
+    const config = {
+      headers: { Authorization: `Bearer ${token}` },
+    };
+
+    const response = await axios.patch(
+      `${API_URL}${studentId}/reset-pin`,
+      { visualPin },
+      config
+    );
+
+    return response.data;
+  } catch (error) {
+    return Promise.reject(
+      error.response?.data || { message: "Failed to reset PIN" }
+    );
+  }
+};
+
+// Enable / disable face authentication
+const toggleFaceAuth = async (studentId, enabled, token) => {
+  try {
+    const config = {
+      headers: { Authorization: `Bearer ${token}` },
+    };
+
+    const response = await axios.patch(
+      `${API_URL}${studentId}/face-auth`,
+      { enabled },
+      config
+    );
+
+    return response.data;
+  } catch (error) {
+    return Promise.reject(
+      error.response?.data || { message: "Failed to update face auth" }
+    );
+  }
+};
+
+// Activate / deactivate student account
+const toggleStudentActive = async (studentId, active, token) => {
+  try {
+    const config = {
+      headers: { Authorization: `Bearer ${token}` },
+    };
+
+    const response = await axios.patch(
+      `${API_URL}${studentId}/active`,
+      { active },
+      config
+    );
+
+    return response.data;
+  } catch (error) {
+    return Promise.reject(
+      error.response?.data || { message: "Failed to update student status" }
+    );
+  }
+};
+
+
 const studentService = {
   getStudents,
   createStudent,
   linkStudent,
   loginStudent,
+  resetStudentPin,
+  toggleFaceAuth,
+  toggleStudentActive,
 };
 
 export default studentService;
+

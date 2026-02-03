@@ -56,7 +56,7 @@ const ParentDashboardHome = () => {
   // Fetch students initially
   useEffect(() => {
     if (user?.token) {
-      dispatch(getStudents(user.token));
+      dispatch(getStudents());
       dispatch(getAllTasks(user.token));
     }
   }, [dispatch, user?.token]);

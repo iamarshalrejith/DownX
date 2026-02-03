@@ -16,7 +16,7 @@ export const generateEnrollmentId = async () => {
   const counter = await Counter.findOneAndUpdate(
     { _id: counterId },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true },
+    { new: true, upsert: true }
   );
 
   return `DX-${year}${counter.seq.toString().padStart(4, "0")}`;
@@ -78,7 +78,7 @@ export const createStudent = async (req, res) => {
     await User.findByIdAndUpdate(
       req.user._id,
       { $addToSet: { studentIds: student._id } }, // prevent duplicates
-      { new: true },
+      { new: true }
     );
     return res.status(201).json(student);
   } catch (error) {
@@ -116,7 +116,7 @@ export const linkStudentToUser = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       { $addToSet: { studentIds: student._id } },
-      { new: true },
+      { new: true }
     ).select("-password");
 
     return res.status(200).json({
@@ -195,7 +195,7 @@ export const studentLogin = async (req, res) => {
     const token = jwt.sign(
       { id: student._id, enrollmentId: student.enrollmentId },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" },
+      { expiresIn: "2h" }
     );
 
     return res.status(200).json({ student, token });
@@ -385,7 +385,7 @@ export const studentFaceLogin = async (req, res, next) => {
         role: "student",
       },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" },
+      { expiresIn: "2h" }
     );
 
     return res.status(200).json({
@@ -407,14 +407,14 @@ export const checkFaceLoginAvailable = async (req, res) => {
   const { enrollmentId } = req.body;
 
   const student = await Student.findOne({ enrollmentId }).select(
-    "+faceEmbedding",
+    "+faceEmbedding"
   );
 
   if (!student || !student.faceEmbedding) {
     return res.json({ faceEnabled: false });
   }
 
-  res.json({ faceEnabled: true });
+  return res.json({ faceEnabled: true });
 };
 
 // Giving Login Options for student
@@ -422,14 +422,14 @@ export const getStudentLoginOptions = async (req, res) => {
   const { enrollmentId } = req.body;
 
   const student = await Student.findOne({ enrollmentId }).select(
-    "+faceEmbedding",
+    "+faceEmbedding"
   );
 
   if (!student) {
     return res.status(404).json({ message: "Student not found" });
   }
 
-  res.json({
+  return res.json({
     faceEnabled: !!student.faceEmbedding?.length,
   });
 };

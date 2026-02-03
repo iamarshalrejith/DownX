@@ -8,33 +8,6 @@ import StudentTaskView from "../modals/StudentTaskView.jsx";
 import { toast } from "react-hot-toast";
 
 const TeacherDashboardHome = () => {
-  // helper function
-  const handleEnableFaceEnrollment = async (studentId) => {
-    try {
-      const res = await fetch(
-        `/api/students/${studentId}/face-enroll-session`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        },
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message);
-
-      const enrollLink = `${window.location.origin}/face-enroll?token=${data.enrollmentToken}`;
-
-      navigator.clipboard.writeText(enrollLink);
-
-      toast.success("Face enrollment link copied!");
-    } catch (err) {
-      toast.error(err.message || "Failed to enable face enrollment");
-    }
-  };
-
   const dispatch = useDispatch();
 
   const {
@@ -58,7 +31,7 @@ const TeacherDashboardHome = () => {
   // Fetch students when teacher is logged in
   useEffect(() => {
     if (user?.token) {
-      dispatch(getStudents(user.token));
+      dispatch(getStudents());
       dispatch(getAllTasks(user.token));
     }
   }, [dispatch, user?.token]);
@@ -81,7 +54,7 @@ const TeacherDashboardHome = () => {
     const totalTasks = tasks.length;
     const assignedToAllTasks = tasks.filter((t) => t.assignedToAll).length;
     const specificStudentTasks = tasks.filter(
-      (t) => t.assignedTo && !t.assignedToAll,
+      (t) => t.assignedTo && !t.assignedToAll
     ).length;
 
     const totalCompletions = tasks.reduce((sum, task) => {
@@ -104,7 +77,7 @@ const TeacherDashboardHome = () => {
   // Get tasks assigned to a specific student
   const getStudentTaskInfo = (studentId) => {
     const studentTasks = tasks.filter(
-      (task) => task.assignedTo?._id === studentId || task.assignedToAll,
+      (task) => task.assignedTo?._id === studentId || task.assignedToAll
     );
 
     const completedTasks = studentTasks.filter((task) => {
@@ -119,6 +92,35 @@ const TeacherDashboardHome = () => {
       completed: completedTasks.length,
       pending: studentTasks.length - completedTasks.length,
     };
+  };
+
+  // Helper function to enable face enrollment
+  const handleEnableFaceEnrollment = async (studentId) => {
+    try {
+      const res = await fetch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/students/${studentId}/face-enroll-session`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user?.token}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message);
+
+      const enrollLink = `${window.location.origin}/face-enroll?token=${data.enrollmentToken}`;
+
+      navigator.clipboard.writeText(enrollLink);
+
+      toast.success("Face enrollment link copied!");
+    } catch (err) {
+      toast.error(err.message || "Failed to enable face enrollment");
+    }
   };
 
   // Handle student click - open modal
@@ -199,7 +201,7 @@ const TeacherDashboardHome = () => {
                 ? `${Math.round(
                     (stats.totalCompletions /
                       (stats.totalTasks * Math.max(myStudents.length, 1))) *
-                      100,
+                      100
                   )}%`
                 : "0%"}
             </p>

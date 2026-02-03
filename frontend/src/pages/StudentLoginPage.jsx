@@ -72,8 +72,8 @@ const StudentLoginPage = () => {
 
   /* ---------------- RESET PIN WHEN ID CHANGES ---------------- */
   useEffect(() => {
-    setVisualPin(["", "", "", ""]); 
-    setLoginMode(null);            
+    setVisualPin(["", "", "", ""]);
+    setLoginMode(null);
   }, [enrollmentId]);
 
   /* ---------------- VISUAL PIN TAP ---------------- */
@@ -92,7 +92,7 @@ const StudentLoginPage = () => {
 
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = () => {
-    if (checkingStudent) return; 
+    if (checkingStudent) return;
 
     if (!enrollmentId || visualPin.includes("")) {
       toast.error(
@@ -115,15 +115,17 @@ const StudentLoginPage = () => {
       return;
     }
 
-    latestEnrollmentRef.current = enrollmentId; 
+    latestEnrollmentRef.current = enrollmentId;
     setCheckingStudent(true);
 
     const timeout = setTimeout(async () => {
       try {
-        const res = await axios.post("/api/students/login-options", {
-          enrollmentId,
-        });
-
+        const res = await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/students/login-options`,
+          {
+            enrollmentId,
+          }
+        );
 
         if (latestEnrollmentRef.current === enrollmentId) {
           setFaceEnabled(res.data.faceEnabled);
@@ -152,10 +154,7 @@ const StudentLoginPage = () => {
       </button>
 
       {showConfetti && (
-        <Confetti
-          width={window.innerWidth}
-          height={window.innerHeight}
-        />
+        <Confetti width={window.innerWidth} height={window.innerHeight} />
       )}
 
       <h1 className="text-5xl font-extrabold mb-10 text-gray-900 text-center animate-pulse">
@@ -229,7 +228,7 @@ const StudentLoginPage = () => {
       {!checkingStudent && faceEnabled === false && (
         <div className="mt-8 w-full max-w-sm">
           <button
-            onClick={() => setLoginMode("pin")} 
+            onClick={() => setLoginMode("pin")}
             className="w-full py-6 bg-indigo-600 text-white text-2xl rounded-2xl shadow-lg"
           >
             Login with Visual PIN

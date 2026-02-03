@@ -21,7 +21,7 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
 
   const user = useSelector((state) => state.auth.user);
-  const { tasks, loading, error } = useSelector((state) => state.task);
+  const { tasks = [], loading, error } = useSelector((state) => state.task);
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [currentSteps, setCurrentSteps] = useState({});
@@ -68,11 +68,15 @@ const StudentDashboard = () => {
   };
 
   const handleTaskDone = () => {
-    dispatch(markTaskComplete({ id: taskId, token: user.token }));
+    if (user?.token && taskId) {
+      dispatch(markTaskComplete({ id: taskId, token: user.token }));
+    }
   };
 
   const handleUndoTask = () => {
-    dispatch(unmarkTaskComplete({ id: taskId, token: user.token }));
+    if (user?.token && taskId) {
+      dispatch(unmarkTaskComplete({ id: taskId, token: user.token }));
+    }
   };
 
   const handleNextTask = () => {
@@ -103,7 +107,7 @@ const StudentDashboard = () => {
           Oops! Something went wrong.
         </p>
         <button
-          onClick={() => dispatch(getAllTasks(user.token))}
+          onClick={() => user?.token && dispatch(getAllTasks(user.token))}
           className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg"
         >
           Try Again
@@ -115,7 +119,9 @@ const StudentDashboard = () => {
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
-        <p className="text-gray-700 text-xl font-semibold">No tasks right now</p>
+        <p className="text-gray-700 text-xl font-semibold">
+          No tasks right now
+        </p>
       </div>
     );
   }
@@ -189,7 +195,7 @@ const StudentDashboard = () => {
           </p>
 
           {/* Task Completion States */}
-          {isTaskDone ? (
+          {!currentTask ? null : isTaskDone ? (
             <div className="p-4 bg-green-100 border-2 border-green-500 rounded-xl text-green-700 font-bold text-lg flex flex-col items-center">
               <FaStar className="text-green-600 mb-3" size={35} />
               <p className="mb-4">Great job! You finished this task!</p>

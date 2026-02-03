@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllTasks } from "../features/task/taskSlice.js";
-import { getStudents } from "../features/student/studentSlice.js"; 
+import { getStudents } from "../features/student/studentSlice.js";
 import Loadingdots from "../components/Loadingdots.jsx";
 import toast from "react-hot-toast";
 import TaskModal from "../modals/TaskModal.jsx";
@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 const TaskListView = () => {
   const dispatch = useDispatch();
   const { tasks = [], loading, error } = useSelector((state) => state.task);
-  const { myStudents = [] } = useSelector((state) => state.students); 
+  const { myStudents = [] } = useSelector((state) => state.students);
   const { user } = useSelector((state) => state.auth);
 
   // Modal state
@@ -21,7 +21,7 @@ const TaskListView = () => {
   useEffect(() => {
     if (user?.token) {
       dispatch(getAllTasks(user.token));
-      dispatch(getStudents(user.token));
+      dispatch(getStudents());
     }
   }, [dispatch, user?.token]);
 
@@ -87,7 +87,10 @@ const TaskListView = () => {
                       {task.title}
                     </h2>
                     <p className="text-sm text-indigo-600 mb-1">
-                      Assigned to: <span className="font-medium">{getStudentName(task)}</span>
+                      Assigned to:{" "}
+                      <span className="font-medium">
+                        {getStudentName(task)}
+                      </span>
                     </p>
                     <p className="text-gray-500 text-sm">
                       {task.description

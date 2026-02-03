@@ -10,7 +10,9 @@ export const markTaskComplete = createAsyncThunk(
       return { id, message: response.message };
     } catch (err) {
       console.error("Error in markTaskComplete:", err);
-      return rejectWithValue(err.message || "Failed to complete task");
+      return rejectWithValue(
+        err.response?.data?.message || err.message || "Failed to complete task"
+      );
     }
   }
 );
@@ -23,7 +25,11 @@ export const unmarkTaskComplete = createAsyncThunk(
       const response = await taskService.unmarkTaskComplete(id, token);
       return { id, message: response.message };
     } catch (err) {
-      return rejectWithValue(err.message || "Failed to revert task completion");
+      return rejectWithValue(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to revert task completion"
+      );
     }
   }
 );
@@ -56,7 +62,10 @@ export const createSimplifiedTask = createAsyncThunk(
     } catch (error) {
       console.error("Error in createSimplifiedTask:", error);
       return rejectWithValue(
-        error.message || "Failed to create simplified task"
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.message ||
+          "Failed to create simplified task"
       );
     }
   }
@@ -69,7 +78,11 @@ export const getAllTasks = createAsyncThunk(
     try {
       return await taskService.getTasks(token);
     } catch (error) {
-      return rejectWithValue(error.message || "Failed to fetch tasks");
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch tasks"
+      );
     }
   }
 );

@@ -2,10 +2,16 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import authService from "../../api/authService";
 
 // step 1 -> load user from local storage -> if already logged in
-const storedUser = JSON.parse(localStorage.getItem("user"));
+let storedUser = null;
+try {
+  const raw = localStorage.getItem("user");
+  if (raw) storedUser = JSON.parse(raw);
+} catch {
+  storedUser = null;
+}
 
 const initialState = {
-  user: storedUser ? storedUser : null,
+  user: storedUser || null,
   isLoading: false,
   isError: false,
   isSuccess: false,
@@ -22,7 +28,11 @@ export const register = createAsyncThunk(
     try {
       return await authService.register(userData); // talk to backend
     } catch (error) {
-      const msg = error.message || "Registration failed";
+      const msg =
+        (typeof error === "object" && error?.message) ||
+        error.response?.data?.message ||
+        error.message ||
+        "Registration failed";
       return thunkAPI.rejectWithValue(msg); // returns error message if it fails
     }
   }
@@ -35,7 +45,11 @@ export const login = createAsyncThunk(
     try {
       return await authService.login(userData);
     } catch (error) {
-      const msg = error.message || "Login failed";
+      const msg =
+        (typeof error === "object" && error?.message) ||
+        error.response?.data?.message ||
+        error.message ||
+        "Login failed";
       return thunkAPI.rejectWithValue(msg);
     }
   }
@@ -61,10 +75,10 @@ const authSlice = createSlice({
       state.isSuccess = false;
       state.message = "";
     },
-    updateUser: (state,action) => {
+    updateUser: (state, action) => {
       state.user = action.payload;
-      localStorage.setItem("user",JSON.stringify(action.payload));
-    }
+      localStorage.setItem("user", JSON.stringify(action.payload));
+    },
   },
 
   extraReducers: (builder) => {
@@ -101,13 +115,13 @@ const authSlice = createSlice({
 
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
-        localStorage.removeItem("user")
+        localStorage.removeItem("user");
       });
   },
 });
 
 // exporting action
-export const { reset,updateUser } = authSlice.actions;
+export const { reset, updateUser } = authSlice.actions;
 
 // export reducer
 export default authSlice.reducer;

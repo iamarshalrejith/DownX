@@ -14,10 +14,7 @@ export const getAllTasks = async (req, res) => {
     } else if (req.user.role === "student") {
       // Students see tasks assigned to them or all students
       tasks = await Task.find({
-        $or: [
-          { assignedTo: req.user._id },
-          { assignedToAll: true },
-        ],
+        $or: [{ assignedTo: req.user._id }, { assignedToAll: true }],
       })
         .sort({ createdAt: -1 })
         .populate("owner", "name")
@@ -36,7 +33,7 @@ export const getAllTasks = async (req, res) => {
       // Parents see tasks assigned to their children
       const User = (await import("../models/User.js")).default;
       const parent = await User.findById(req.user._id).select("studentIds");
-      
+
       if (!parent || !parent.studentIds || parent.studentIds.length === 0) {
         return res.status(200).json([]); // Return empty array if no children linked
       }
@@ -55,10 +52,10 @@ export const getAllTasks = async (req, res) => {
       return res.status(403).json({ message: "Invalid user role" });
     }
 
-    res.status(200).json(tasks);
+    return res.status(200).json(tasks);
   } catch (error) {
     console.error("Error in getAllTasks controller", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -82,11 +79,12 @@ export const getTaskById = async (req, res) => {
     if (req.user.role === "parent") {
       const User = (await import("../models/User.js")).default;
       const parent = await User.findById(req.user._id).select("studentIds");
-      
+
       if (parent && parent.studentIds) {
         isParentOfAssignedStudent =
           task.assignedToAll ||
-          (task.assignedTo && parent.studentIds.some(id => id.equals(task.assignedTo._id)));
+          (task.assignedTo &&
+            parent.studentIds.some((id) => id.equals(task.assignedTo._id)));
       }
     }
 
@@ -104,10 +102,10 @@ export const getTaskById = async (req, res) => {
       );
     }
 
-    res.status(200).json(taskObj);
+    return res.status(200).json(taskObj);
   } catch (error) {
     console.error("Error in getTaskById controller", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -158,10 +156,10 @@ export const createTask = async (req, res) => {
     });
 
     const savedTask = await task.save();
-    res.status(201).json(savedTask);
+    return res.status(201).json(savedTask);
   } catch (error) {
     console.error("Error in createTask controller:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -194,10 +192,10 @@ export const updateTask = async (req, res) => {
     if (steps) task.steps = steps;
 
     const updatedTask = await task.save();
-    res.status(200).json(updatedTask);
+    return res.status(200).json(updatedTask);
   } catch (error) {
     console.error("Error in updateTask controller", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -219,10 +217,10 @@ export const deleteTask = async (req, res) => {
     }
 
     await task.deleteOne();
-    res.status(200).json({ message: "Task deleted successfully!" });
+    return res.status(200).json({ message: "Task deleted successfully!" });
   } catch (error) {
     console.error("Error in deleteTask controller", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -273,13 +271,13 @@ export const completeTask = async (req, res) => {
 
     const updatedTask = await task.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Task marked as completed",
       task: updatedTask,
     });
   } catch (error) {
     console.error("Error in completeTask controller", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -315,12 +313,12 @@ export const uncompleteTask = async (req, res) => {
 
     const updatedTask = await task.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Task reverted to active",
       task: updatedTask,
     });
   } catch (error) {
     console.error("Error in uncompleteTask controller", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };

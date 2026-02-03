@@ -5,7 +5,7 @@ export const simplifyInstruction = async (req, res) => {
     const { inputText } = req.body;
 
     if (!inputText) {
-      return res.status(400).json({ error: "Missing inputText field" });
+      return res.status(400).json({ message: "Missing inputText field" });
     }
 
     // System Instruction Prompt
@@ -65,15 +65,15 @@ Example:
     }
 
     // Return simplified steps
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       steps: simplifiedSteps,
     });
   } catch (error) {
     console.error("Gemini Simplification Error", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error.message || "Failed to simplify text",
+      message: error.message || "Failed to simplify text",
     });
   }
 };

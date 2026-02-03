@@ -27,7 +27,7 @@ const CreateTaskPage = () => {
 
   useEffect(() => {
     if (user?.token && user?.role === "teacher") {
-      dispatch(getStudents(user.token));
+      dispatch(getStudents());
     }
   }, [dispatch, user?.token, user?.role]);
 

@@ -29,36 +29,35 @@ export const registerUser = async (req, res) => {
 
     // respond with user data
     const { password: _, ...userdata } = savedUser._doc;
-    const token = generateToken(savedUser._id)
-    res.status(201).json({...userdata,token});
+    const token = generateToken(savedUser._id);
+    return res.status(201).json({ ...userdata, token });
   } catch (error) {
     console.error("Error registering user:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-
 // login user
-export const loginUser = async (req,res) => {
-    try{
-        const { email, password } = req.body;
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-        //find user
-        const user = await User.findOne({email});
-        if(!user){
-            return res.status(401).json({message: "Invalid email or password"});
-        }
-
-        // compare password
-        const isMatch = await bcrypt.compare(password,user.password)
-        if(!isMatch){
-            return res.status(401).json({message: "Invalid email or password"});
-        }
-        const {password: _, ...userdata} = user._doc;
-        const token = generateToken(user._id)
-        return res.status(200).json({...userdata,token});
-    }catch (error) {
-        console.error("Error logging in user:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+    //find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password" });
     }
-}
+
+    // compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    const { password: _, ...userdata } = user._doc;
+    const token = generateToken(user._id);
+    return res.status(200).json({ ...userdata, token });
+  } catch (error) {
+    console.error("Error logging in user:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};

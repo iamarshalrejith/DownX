@@ -21,7 +21,7 @@ export const protect = async (req, res, next) => {
       // If not found in User collection, try Student collection
       if (!user) {
         const student = await Student.findById(decoded.id);
-        
+
         if (student) {
           // Transform student to match expected user structure
           user = {
@@ -41,11 +41,11 @@ export const protect = async (req, res, next) => {
       req.user = user; // attach user/student to req object
       next();
     } else {
-      res.status(401).json({ message: "Not authorized, token missing" });
+      return res.status(401).json({ message: "Not authorized, token missing" });
     }
   } catch (error) {
     console.error("Auth Middleware Error:", error);
-    res.status(401).json({ message: "Not authorized, token invalid" });
+    return res.status(401).json({ message: "Not authorized, token invalid" });
   }
 };
 

@@ -20,12 +20,10 @@ export const studentLogin = createAsyncThunk(
       return data; // { student, token }
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.data?.message ||
-          error.message ||
-          "Student login failed",
+        error.response?.data?.message || error.message || "Student login failed"
       );
     }
-  },
+  }
 );
 
 // Get all students linked to user
@@ -33,14 +31,19 @@ export const getStudents = createAsyncThunk(
   "students/getAll",
   async (_, thunkAPI) => {
     try {
-      const token = thunkAPI.getState().auth.user.token;
+      const token = thunkAPI.getState().auth.user?.token;
+      if (!token) {
+        return thunkAPI.rejectWithValue("Not authenticated");
+      }
       return await studentService.getStudents(token);
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.message || error.message || "Failed to fetch students",
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch students"
       );
     }
-  },
+  }
 );
 
 // Create student (teacher only)
@@ -48,14 +51,19 @@ export const createStudent = createAsyncThunk(
   "students/create",
   async (studentData, thunkAPI) => {
     try {
-      const token = thunkAPI.getState().auth.user.token;
+      const token = thunkAPI.getState().auth.user?.token;
+      if (!token) {
+        return thunkAPI.rejectWithValue("Not authenticated");
+      }
       return await studentService.createStudent(studentData, token);
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.message || error.message || "Failed to create student",
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to create student"
       );
     }
-  },
+  }
 );
 
 // Link existing student to parent
@@ -63,19 +71,78 @@ export const linkStudent = createAsyncThunk(
   "students/link",
   async ({ enrollmentId, visualPin }, thunkAPI) => {
     try {
-      const token = thunkAPI.getState().auth.user.token;
+      const token = thunkAPI.getState().auth.user?.token;
+      if (!token) {
+        return thunkAPI.rejectWithValue("Not authenticated");
+      }
       const data = await studentService.linkStudent(
         { enrollmentId, visualPin },
-        token,
+        token
       );
       thunkAPI.dispatch(updateUser(data.user));
       return data; // { message, user, student }
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error.response?.message || error.message || "Failed to link student",
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to link student"
       );
     }
-  },
+  }
+);
+
+// Reset student PIN
+export const resetStudentPin = createAsyncThunk(
+  "students/resetPin",
+  async ({ studentId, visualPin }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.user?.token;
+      if (!token) {
+        return thunkAPI.rejectWithValue("Not authenticated");
+      }
+      return await studentService.resetStudentPin(studentId, visualPin, token);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Failed to reset PIN"
+      );
+    }
+  }
+);
+
+// Toggle face authentication
+export const toggleFaceAuth = createAsyncThunk(
+  "students/toggleFaceAuth",
+  async ({ studentId, enabled }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.user?.token;
+      if (!token) {
+        return thunkAPI.rejectWithValue("Not authenticated");
+      }
+      return await studentService.toggleFaceAuth(studentId, enabled, token);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Failed to update face auth"
+      );
+    }
+  }
+);
+
+// Activate / deactivate student
+export const toggleStudentActive = createAsyncThunk(
+  "students/toggleActive",
+  async ({ studentId, active }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.user?.token;
+      if (!token) {
+        return thunkAPI.rejectWithValue("Not authenticated");
+      }
+      return await studentService.toggleStudentActive(studentId, active, token);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Failed to update student status"
+      );
+    }
+  }
 );
 
 // Slice
@@ -178,6 +245,45 @@ const studentSlice = createSlice({
       })
       .addCase(linkStudent.rejected, (state, action) => {
         state.isLinking = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+
+      // Reset PIN
+      .addCase(resetStudentPin.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(resetStudentPin.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(resetStudentPin.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+
+      // Toggle Face Auth
+      .addCase(toggleFaceAuth.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(toggleFaceAuth.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(toggleFaceAuth.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+
+      // Toggle Student Active
+      .addCase(toggleStudentActive.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(toggleStudentActive.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(toggleStudentActive.rejected, (state, action) => {
+        state.isLoading = false;
         state.isError = true;
         state.message = action.payload;
       });

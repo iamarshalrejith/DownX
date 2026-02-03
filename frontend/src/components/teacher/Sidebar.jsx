@@ -8,6 +8,7 @@ import {
   FiBookOpen,
   FiUserCheck,
   FiLogOut,
+  FiSettings,
 } from "react-icons/fi";
 
 const Sidebar = () => {
@@ -23,7 +24,7 @@ const Sidebar = () => {
   const role = user?.role || "guest";
 
   return (
-    <div className="min-h-screen w-64 bg-indigo-600 text-white flex flex-col justify-between shadow-lg">
+   <div className="min-h-screen w-64 bg-indigo-600 text-white flex flex-col shadow-lg">
       {/* Top Section */}
       <div>
         {/* User Info */}
@@ -85,6 +86,17 @@ const Sidebar = () => {
               >
                 <FiUserCheck size={18} /> Student Management
               </NavLink>
+
+              <NavLink
+                to="/dashboard/settings"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-6 py-3 hover:bg-indigo-700 transition ${
+                    isActive ? "bg-indigo-900" : ""
+                  }`
+                }
+              >
+                <FiSettings size={18} /> Settings
+              </NavLink>
             </>
           )}
         </nav>
@@ -94,7 +106,7 @@ const Sidebar = () => {
       <div className="p-6 border-t border-indigo-500">
         <button
           onClick={handleLogout}
-          className="flex items-center justify-center gap-2 w-full bg-white text-indigo-700 hover:bg-indigo-100 py-2 px-4 rounded-3xl font-semibold transition"
+          className="flex items-center justify-center gap-2 w-full bg-white text-indigo-700 hover:bg-indigo-100 py-2 px-4 rounded-3xl font-semibold transition "
         >
           <FiLogOut size={18} /> Logout
         </button>
