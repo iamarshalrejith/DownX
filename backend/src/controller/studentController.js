@@ -328,26 +328,45 @@ export const completeFaceEnrollment = async (req, res) => {
 // Student face login
 export const studentFaceLogin = async (req, res, next) => {
   try {
-    const student = req.student;
+    console.log("Face login attempt for:", req.body.enrollmentId);
+    
+    // Re-fetch student WITH faceEmbedding
+    const student = await Student.findById(req.student._id).select('+faceEmbedding');
+    
+    if (!student) {
+      console.log("Student not found after re-fetch");
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    console.log("Student loaded:", student.name);
+    console.log("Face auth enabled:", student.faceAuthEnabled);
+    console.log("Stored embedding length:", student.faceEmbedding?.length);
+
     const { faceEmbedding } = req.body;
 
     if (!Array.isArray(faceEmbedding)) {
+      console.log("Invalid face embedding format");
       return res.status(400).json({
         message: "Invalid face embedding",
       });
     }
 
-    if (!Array.isArray(student.faceEmbedding)) {
+    console.log("Received embedding length:", faceEmbedding.length);
+
+    if (!Array.isArray(student.faceEmbedding) || student.faceEmbedding.length === 0) {
+      console.log("Stored face data missing or empty");
       return res.status(500).json({
-        message: "Stored face data missing",
+        message: "Stored face data missing. Please re-enroll.",
       });
     }
 
     const similarity = cosineSimilarity(student.faceEmbedding, faceEmbedding);
+    console.log("Similarity score:", similarity);
 
-    const THRESHOLD = 0.72; // keep your tested value
+    const THRESHOLD = 0.72;
 
     if (similarity < THRESHOLD) {
+      console.log("Similarity below threshold");
       student.loginAttempts += 1;
 
       let lockTriggered = false;
@@ -370,8 +389,11 @@ export const studentFaceLogin = async (req, res, next) => {
 
       return res.status(401).json({
         message: "Face verification failed",
+        similarity: similarity.toFixed(3), // for debugging
       });
     }
+
+    console.log("Face verification successful");
 
     // SUCCESS - reset lock state
     student.loginAttempts = 0;
@@ -388,6 +410,12 @@ export const studentFaceLogin = async (req, res, next) => {
       { expiresIn: "2h" }
     );
 
+    await logAudit({
+      action: "FACE_LOGIN_SUCCESS",
+      req,
+      studentId: student._id,
+    });
+
     return res.status(200).json({
       message: "Face login successful",
       token,
@@ -398,7 +426,11 @@ export const studentFaceLogin = async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error);
+    console.error("💥 Face login error:", error);
+    return res.status(500).json({
+      message: "Face login failed",
+      error: error.message,
+    });
   }
 };
 

@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { useDispatch } from "react-redux";
+import { updateUser } from "../features/auth/authSlice";
 
 const StudentFaceLogin = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -20,6 +23,7 @@ const StudentFaceLogin = () => {
 
   const DETECTION_INTERVAL = 1000;
   const MAX_SAMPLES = 5;
+ 
 
   // Helpers
 
@@ -57,7 +61,7 @@ const StudentFaceLogin = () => {
     return avg.map((v) => v / vectors.length);
   };
 
-  // Start Camera 
+  // Start Camera
 
   useEffect(() => {
     if (status !== "scanning") return;
@@ -71,7 +75,7 @@ const StudentFaceLogin = () => {
     startCamera();
   }, [status]);
 
-  // Load Face Model 
+  // Load Face Model
 
   useEffect(() => {
     if (status !== "scanning") return;
@@ -97,7 +101,7 @@ const StudentFaceLogin = () => {
     loadModel();
   }, [status]);
 
-  // Face Detection Loop 
+  // Face Detection Loop
 
   useEffect(() => {
     if (status !== "scanning") return;
@@ -139,8 +143,7 @@ const StudentFaceLogin = () => {
     return () => cancelAnimationFrame(rafId);
   }, [status, faceVectors]);
 
-  // Send to Backend 
-
+   // Send to Backend
   useEffect(() => {
     if (faceVectors.length === MAX_SAMPLES) {
       const finalVector = averageVectors(faceVectors);
@@ -154,25 +157,43 @@ const StudentFaceLogin = () => {
           setStatus("verifying");
 
           axios
-            .post("/api/students/face-login", {
+            .post(`${import.meta.env.VITE_API_URL}/api/students/face-login`, {
               enrollmentId,
               faceEmbedding: smoothedVector,
             })
             .then((res) => {
-              //
+              // Stop camera
               if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop());
                 streamRef.current = null;
               }
 
+              // Save token to localStorage
               localStorage.setItem("studentToken", res.data.token);
-              navigate("/student-dashboard");
-            })
 
-            .catch(() => {
+              // Update Redux store
+              dispatch(updateUser({ 
+                ...res.data.student, 
+                token: res.data.token,
+                role: 'student'
+              }));
+
+              // Navigate
+              navigate("/student-dashboard", { replace: true });
+            })
+            .catch((err) => {
+              console.error("Face login error:", err);
+              console.error("Response data:", err.response?.data);
               stopCamera();
+
+              const errorMsg =
+                err.response?.data?.message || "Face not recognized";
+              const errorDetail = err.response?.data?.error;
+
               setError(
-                "Face not recognized. Please try again or use Visual PIN.",
+                errorDetail
+                  ? `${errorMsg}: ${errorDetail}`
+                  : `${errorMsg}. Please try again or use Visual PIN.`,
               );
               setStatus("error");
             });
@@ -185,8 +206,7 @@ const StudentFaceLogin = () => {
         return next;
       });
     }
-  }, [faceVectors, enrollmentId, navigate]);
-
+  }, [faceVectors, enrollmentId, navigate, dispatch]);
   // UI
 
   const startFaceLogin = () => {

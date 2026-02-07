@@ -28,17 +28,33 @@ const StudentDashboard = () => {
   const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
-    if (user?.token) {
+    // Check for student token first
+    const studentToken = localStorage.getItem('studentToken');
+    
+    if (studentToken) {
+      // Student is logged in via face/PIN
+      dispatch(getAllTasks(studentToken));
+    } else if (user?.token) {
+      // Fallback to regular user token
       dispatch(getAllTasks(user.token));
     } else {
+      // No token at all - redirect to login
       navigate("/student-login");
     }
   }, [dispatch, user, navigate]);
 
   const handleLogout = () => {
+    // Clear student token
+    localStorage.removeItem('studentToken');
+    
     dispatch(logout());
     dispatch(resetStudent());
     navigate("/", { replace: true });
+  };
+
+  // Get the active token for task operations
+  const getActiveToken = () => {
+    return localStorage.getItem('studentToken') || user?.token;
   };
 
   const filteredTasks = tasks.filter((task) =>
@@ -68,14 +84,16 @@ const StudentDashboard = () => {
   };
 
   const handleTaskDone = () => {
-    if (user?.token && taskId) {
-      dispatch(markTaskComplete({ id: taskId, token: user.token }));
+    const token = getActiveToken();
+    if (token && taskId) {
+      dispatch(markTaskComplete({ id: taskId, token }));
     }
   };
 
   const handleUndoTask = () => {
-    if (user?.token && taskId) {
-      dispatch(unmarkTaskComplete({ id: taskId, token: user.token }));
+    const token = getActiveToken();
+    if (token && taskId) {
+      dispatch(unmarkTaskComplete({ id: taskId, token }));
     }
   };
 
@@ -106,11 +124,21 @@ const StudentDashboard = () => {
         <p className="text-red-600 font-semibold text-lg mb-4">
           Oops! Something went wrong.
         </p>
+        <p className="text-sm text-gray-600 mb-4">{error}</p>
         <button
-          onClick={() => user?.token && dispatch(getAllTasks(user.token))}
+          onClick={() => {
+            const token = getActiveToken();
+            if (token) dispatch(getAllTasks(token));
+          }}
           className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg"
         >
           Try Again
+        </button>
+        <button
+          onClick={() => navigate("/student-login")}
+          className="mt-4 text-blue-600 underline"
+        >
+          Back to Login
         </button>
       </div>
     );
@@ -131,7 +159,7 @@ const StudentDashboard = () => {
       {/* Header and Logout */}
       <div className="w-full flex justify-between items-center mb-6">
         <h1 className="text-3xl font-extrabold text-blue-800">
-          Hi {user?.name}!
+          Hi {user?.name || 'Student'}!
         </h1>
         <button
           onClick={handleLogout}
