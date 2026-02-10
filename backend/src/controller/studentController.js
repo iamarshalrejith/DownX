@@ -7,6 +7,10 @@ import generateEnrollmentToken from "../utils/generateEnrollmentToken.js";
 import cosineSimilarity from "../utils/vectorSimilarity.js";
 import { logAudit } from "../utils/auditLogger.js";
 
+const FACE_SIMILARITY_THRESHOLD = parseFloat(process.env.FACE_THRESHOLD || '0.68');
+const MIN_THRESHOLD = 0.60; // Safety minimum
+const MAX_THRESHOLD = 0.80; // Safety maximum
+
 // Helper to generate enrollment ID
 export const generateEnrollmentId = async () => {
   const year = new Date().getFullYear();
@@ -327,11 +331,12 @@ export const completeFaceEnrollment = async (req, res) => {
 
 // Student face login
 export const studentFaceLogin = async (req, res, next) => {
+  const THRESHOLD = Math.min(Math.max(FACE_SIMILARITY_THRESHOLD, MIN_THRESHOLD), MAX_THRESHOLD);
+  console.log("Using threshold:", THRESHOLD);
   try {
     console.log("Face login attempt for:", req.body.enrollmentId);
     
-    // Re-fetch student WITH faceEmbedding
-    const student = await Student.findById(req.student._id).select('+faceEmbedding');
+    const student = req.student;
     
     if (!student) {
       console.log("Student not found after re-fetch");
@@ -363,7 +368,6 @@ export const studentFaceLogin = async (req, res, next) => {
     const similarity = cosineSimilarity(student.faceEmbedding, faceEmbedding);
     console.log("Similarity score:", similarity);
 
-    const THRESHOLD = 0.72;
 
     if (similarity < THRESHOLD) {
       console.log("Similarity below threshold");
@@ -426,7 +430,7 @@ export const studentFaceLogin = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("💥 Face login error:", error);
+    console.error("Face login error:", error);
     return res.status(500).json({
       message: "Face login failed",
       error: error.message,

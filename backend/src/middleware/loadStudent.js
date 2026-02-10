@@ -12,10 +12,13 @@ export const loadStudentByEnrollmentId = async (req, res, next) => {
       });
     }
 
-    // For face login routes, also load faceEmbedding
-    const isFaceRoute = req.path.includes('face-login');
+    // Check if this is a face-related route
+    const isFaceRoute = 
+      req.originalUrl.includes('face-login') || 
+      req.originalUrl.includes('face-enroll');
     
     console.log("Is face route:", isFaceRoute);
+    console.log("Original URL:", req.originalUrl);
     
     let student;
     if (isFaceRoute) {

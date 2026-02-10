@@ -16,17 +16,20 @@ const StudentFaceLogin = () => {
 
   const [params] = useSearchParams();
   const enrollmentId = params.get("enrollmentId");
+  
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [faceVectors, setFaceVectors] = useState([]);
   const [attempts, setAttempts] = useState([]);
+  const [retryCount, setRetryCount] = useState(0);
 
   const DETECTION_INTERVAL = 1000;
   const MAX_SAMPLES = 5;
- 
+  const MAX_ATTEMPTS = 3;
+  const MIN_ATTEMPTS = 2;
+  const MAX_RETRIES = 2;
 
   // Helpers
-
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -52,7 +55,6 @@ const StudentFaceLogin = () => {
   const averageVectors = (vectors) => {
     const len = vectors[0].length;
     const avg = new Array(len).fill(0);
-
     for (let v of vectors) {
       for (let i = 0; i < len; i++) {
         avg[i] += v[i];
@@ -62,47 +64,63 @@ const StudentFaceLogin = () => {
   };
 
   // Start Camera
-
   useEffect(() => {
     if (status !== "scanning") return;
 
     async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "user"
+          }
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        setError("Could not access camera. Please check permissions.");
+        setStatus("error");
+        stopCamera();
+      }
     }
 
     startCamera();
   }, [status]);
 
   // Load Face Model
-
   useEffect(() => {
     if (status !== "scanning") return;
 
     async function loadModel() {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm",
-      );
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+        );
 
-      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(
-        vision,
-        {
+        faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
               "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
           },
           runningMode: "VIDEO",
           numFaces: 1,
-        },
-      );
+        });
+      } catch (err) {
+        console.error("Model loading error:", err);
+        setError("Failed to load face detection. Please refresh.");
+        setStatus("error");
+        stopCamera();
+      }
     }
 
     loadModel();
   }, [status]);
 
   // Face Detection Loop
-
   useEffect(() => {
     if (status !== "scanning") return;
 
@@ -119,19 +137,20 @@ const StudentFaceLogin = () => {
         if (now - lastDetectionTimeRef.current > DETECTION_INTERVAL) {
           lastDetectionTimeRef.current = now;
 
-          const res = faceLandmarkerRef.current.detectForVideo(
-            videoRef.current,
-            now,
-          );
+          try {
+            const res = faceLandmarkerRef.current.detectForVideo(
+              videoRef.current,
+              now
+            );
 
-          if (res.faceLandmarks.length && faceVectors.length < MAX_SAMPLES) {
-            const raw = landmarksToVector(res.faceLandmarks[0]);
-            const norm = normalizeVector(raw);
+            if (res.faceLandmarks.length && faceVectors.length < MAX_SAMPLES) {
+              const raw = landmarksToVector(res.faceLandmarks[0]);
+              const norm = normalizeVector(raw);
 
-            setFaceVectors((prev) => {
-              const next = [...prev, norm];
-              return next;
-            });
+              setFaceVectors((prev) => [...prev, norm]);
+            }
+          } catch (err) {
+            console.error("Detection error:", err);
           }
         }
       }
@@ -143,7 +162,7 @@ const StudentFaceLogin = () => {
     return () => cancelAnimationFrame(rafId);
   }, [status, faceVectors]);
 
-   // Send to Backend
+  // Send to Backend
   useEffect(() => {
     if (faceVectors.length === MAX_SAMPLES) {
       const finalVector = averageVectors(faceVectors);
@@ -151,8 +170,8 @@ const StudentFaceLogin = () => {
       setAttempts((prev) => {
         const next = [...prev, finalVector];
 
-        // Only verify after 2 attempts
-        if (next.length === 2) {
+        // Verify after minimum attempts
+        if (next.length >= MIN_ATTEMPTS && next.length <= MAX_ATTEMPTS) {
           const smoothedVector = averageVectors(next);
           setStatus("verifying");
 
@@ -162,43 +181,41 @@ const StudentFaceLogin = () => {
               faceEmbedding: smoothedVector,
             })
             .then((res) => {
-              // Stop camera
-              if (streamRef.current) {
-                streamRef.current.getTracks().forEach((track) => track.stop());
-                streamRef.current = null;
-              }
+              stopCamera();
 
-              // Save token to localStorage
+              // Save token
               localStorage.setItem("studentToken", res.data.token);
 
-              // Update Redux store
-              dispatch(updateUser({ 
-                ...res.data.student, 
-                token: res.data.token,
-                role: 'student'
-              }));
+              // Update Redux
+              dispatch(
+                updateUser({
+                  ...res.data.student,
+                  token: res.data.token,
+                  role: "student",
+                })
+              );
 
               // Navigate
               navigate("/student-dashboard", { replace: true });
             })
             .catch((err) => {
               console.error("Face login error:", err);
-              console.error("Response data:", err.response?.data);
+              console.error("Response:", err.response?.data);
               stopCamera();
 
-              const errorMsg =
-                err.response?.data?.message || "Face not recognized";
-              const errorDetail = err.response?.data?.error;
+              const errorMsg = err.response?.data?.message || "Face not recognized";
 
-              setError(
-                errorDetail
-                  ? `${errorMsg}: ${errorDetail}`
-                  : `${errorMsg}. Please try again or use Visual PIN.`,
-              );
-              setStatus("error");
+              // Check if we can retry
+              if (retryCount < MAX_RETRIES) {
+                setError(`${errorMsg}. Retry ${retryCount + 1}/${MAX_RETRIES}?`);
+                setStatus("retry-prompt");
+              } else {
+                setError(`${errorMsg}. Maximum attempts reached.`);
+                setStatus("error");
+              }
             });
-        } else {
-          // reset for next attempt
+        } else if (next.length < MAX_ATTEMPTS) {
+          // Reset for next attempt
           setFaceVectors([]);
           lastDetectionTimeRef.current = 0;
         }
@@ -206,39 +223,47 @@ const StudentFaceLogin = () => {
         return next;
       });
     }
-  }, [faceVectors, enrollmentId, navigate, dispatch]);
-  // UI
+  }, [faceVectors, enrollmentId, navigate, dispatch, retryCount]);
 
+  // Start face login
   const startFaceLogin = () => {
-    if (!enrollmentId.trim()) {
+    if (!enrollmentId?.trim()) {
       setError("Enrollment ID is required");
       return;
     }
     setError("");
     setFaceVectors([]);
+    setAttempts([]);
+    setRetryCount(0);
     setStatus("scanning");
   };
 
+  // Retry handler
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1);
+    setError("");
+    setFaceVectors([]);
+    setAttempts([]);
+    lastDetectionTimeRef.current = 0;
+    setStatus("scanning");
+  };
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
+      stopCamera();
     };
   }, []);
 
-  if (status === "verifying") {
-    return <p>Verifying face…</p>;
-  }
+  // ===== RENDER =====
 
-  if (status === "error") {
+  if (status === "verifying") {
     return (
-      <div>
-        <p style={{ color: "red" }}>{error}</p>
-        <button onClick={() => navigate("/student-login")}>
-          Use Visual PIN
-        </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-indigo-100">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-indigo-700">Verifying face…</p>
+        </div>
       </div>
     );
   }
@@ -250,24 +275,32 @@ const StudentFaceLogin = () => {
           Student Face Login
         </h2>
 
+        {/* IDLE STATE */}
         {status === "idle" && (
           <>
             <p className="text-sm text-gray-600 mb-4">
-              Enrollment ID:{" "}
-              <span className="font-semibold">{enrollmentId}</span>
+              Enrollment ID: <span className="font-semibold">{enrollmentId}</span>
             </p>
 
             <button
               onClick={startFaceLogin}
-              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition"
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition font-medium"
             >
               Start Face Login
             </button>
 
-            {error && <p className="text-red-500 mt-3">{error}</p>}
+            <button
+              onClick={() => navigate("/student-login")}
+              className="w-full mt-3 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition"
+            >
+              Use Visual PIN Instead
+            </button>
+
+            {error && <p className="text-red-500 mt-3 text-sm">{error}</p>}
           </>
         )}
 
+        {/* SCANNING STATE */}
         {status === "scanning" && (
           <div className="flex flex-col items-center justify-center mt-6">
             <div className="relative w-64 h-64 rounded-full overflow-hidden border-4 border-indigo-500 shadow-xl bg-black">
@@ -285,32 +318,53 @@ const StudentFaceLogin = () => {
               </div>
             </div>
 
-            <p className="mt-4 text-sm font-medium text-indigo-700">
-              Capturing face… {faceVectors.length}/{MAX_SAMPLES}
-            </p>
+            <div className="mt-4 space-y-2 text-center">
+              <p className="text-sm font-medium text-indigo-700">
+                Capturing face… {faceVectors.length}/{MAX_SAMPLES}
+              </p>
 
-            <p className="text-xs text-gray-500 mt-1">
-              Hold still • Face the camera • Good lighting
-            </p>
+              <p className="text-xs text-gray-500">
+                Hold still • Face the camera • Good lighting
+              </p>
 
-            <p className="text-xs text-gray-400 mt-1">
-              Attempt {attempts.length + 1}/2
-            </p>
+              <p className="text-xs text-gray-400">
+                Attempt {attempts.length + 1}/{MAX_ATTEMPTS}
+              </p>
+            </div>
           </div>
         )}
 
-        {status === "verifying" && (
-          <p className="text-indigo-700 font-medium mt-6">Verifying face…</p>
-        )}
+        {/* RETRY PROMPT STATE */}
+        {status === "retry-prompt" && (
+          <div className="mt-4 space-y-3">
+            <p className="text-yellow-600 text-sm font-medium">{error}</p>
 
-        {status === "error" && (
-          <div className="mt-4">
-            <p className="text-red-500 mb-3">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+            >
+              Try Again ({retryCount + 1}/{MAX_RETRIES + 1})
+            </button>
+
             <button
               onClick={() => navigate("/student-login")}
-              className="text-indigo-600 underline"
+              className="w-full py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition"
             >
-              Use Visual PIN instead
+              Use Visual PIN Instead
+            </button>
+          </div>
+        )}
+
+        {/* ERROR STATE */}
+        {status === "error" && (
+          <div className="mt-4 space-y-3">
+            <p className="text-red-500 text-sm font-medium">{error}</p>
+
+            <button
+              onClick={() => navigate("/student-login")}
+              className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+            >
+              Use Visual PIN
             </button>
           </div>
         )}
