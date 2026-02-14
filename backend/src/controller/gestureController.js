@@ -46,3 +46,26 @@ export const logGesture = async (req, res) => {
   }
 };
 
+// Get recent gesture events for a student
+export const getStudentGestures = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    const limit = parseInt(req.query.limit) || 20;
+
+    const student = await Student.findOne({ enrollmentId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    const gestures = await GestureEvent.find({ studentId: student._id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('taskId', 'title');
+
+    res.json({ gestures });
+
+  } catch (error) {
+    console.error('Get gestures error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
