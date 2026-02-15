@@ -69,3 +69,30 @@ export const getStudentGestures = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Get unresolved help requests for teacher
+export const getHelpRequests = async (req, res) => {
+  try {
+    const { teacherId } = req.user; // From auth middleware
+
+    // Find all students linked to this teacher
+    const students = await Student.find({ linkedCaretakers: teacherId });
+    const studentIds = students.map(s => s._id);
+
+    // Find unresolved help requests
+    const helpRequests = await GestureEvent.find({
+      studentId: { $in: studentIds },
+      gestureType: 'raised_hand',
+      resolved: false
+    })
+    .sort({ createdAt: -1 })
+    .populate('studentId', 'firstName lastName enrollmentId')
+    .populate('taskId', 'title');
+
+    res.json({ helpRequests });
+
+  } catch (error) {
+    console.error('Get help requests error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
