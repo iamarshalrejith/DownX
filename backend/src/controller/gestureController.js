@@ -96,3 +96,31 @@ export const getHelpRequests = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Mark gesture as resolved
+export const resolveGesture = async (req, res) => {
+  try {
+    const { gestureId } = req.params;
+    const { responseNote } = req.body;
+
+    const gesture = await GestureEvent.findByIdAndUpdate(
+      gestureId,
+      {
+        resolved: true,
+        'teacherResponse.respondedAt': new Date(),
+        'teacherResponse.responseNote': responseNote || 'Resolved'
+      },
+      { new: true }
+    );
+
+    if (!gesture) {
+      return res.status(404).json({ message: 'Gesture event not found' });
+    }
+
+    res.json({ success: true, gesture });
+
+  } catch (error) {
+    console.error('Resolve gesture error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
