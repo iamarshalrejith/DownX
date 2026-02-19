@@ -5,6 +5,7 @@ import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import gestureRoutes from './routes/gestureRoutes.js';
 import { connectDB } from "./config/db.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -29,6 +30,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/ai", aiRoutes);
+app.use('/api/gestures', gestureRoutes);
 
 // Error handler must be AFTER all routes
 app.use(errorHandler);
