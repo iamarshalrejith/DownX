@@ -3,6 +3,13 @@ import { useGestureDetection } from '../../hooks/useGestureDetection';
 import GestureIndicator from './GestureIndicator';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import {
+  Hand,
+  ThumbsUp,
+  ThumbsDown,
+  HandMetal,
+  X
+} from 'lucide-react';
 
 const GestureDetector = ({ 
   enrollmentId, 
@@ -22,8 +29,8 @@ const GestureDetector = ({
   const [gestureHoldTime, setGestureHoldTime] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
 
-  const CONFIDENCE_THRESHOLD = 0.7; // 70% confidence required
-  const HOLD_DURATION = 2000; // Hold gesture for 2 seconds to trigger
+  const CONFIDENCE_THRESHOLD = 0.7;
+  const HOLD_DURATION = 2000;
 
   // Track gesture hold duration
   useEffect(() => {
@@ -61,30 +68,29 @@ const GestureDetector = ({
         }
       });
 
-      // Show feedback based on gesture type
+      // Professional toast feedback (no emojis)
       if (gestureType === 'raised_hand') {
         toast.success('Help request sent to your teacher!', {
           duration: 4000,
-          icon: '✋'
+          icon: <Hand size={18} />
         });
       } else if (gestureType === 'thumbs_up') {
-        toast.success('Great job! Keep it up! 🎉', {
+        toast.success('Great job! Keep it up!', {
           duration: 3000,
-          icon: '👍'
+          icon: <ThumbsUp size={18} />
         });
       } else if (gestureType === 'thumbs_down') {
         toast('Let me know if you need help!', {
           duration: 3000,
-          icon: '👎'
+          icon: <ThumbsDown size={18} />
         });
       } else if (gestureType === 'peace_sign') {
-        toast.success('Awesome! Task marked as finished! ✨', {
+        toast.success('Awesome! Task marked as finished!', {
           duration: 3000,
-          icon: '✌️'
+          icon: <HandMetal size={18} />
         });
       }
 
-      // Callback for parent component
       if (onGestureDetected) {
         onGestureDetected(gestureType, response.data);
       }
@@ -99,29 +105,31 @@ const GestureDetector = ({
 
   return (
     <div className="gesture-detector">
-      {/* Toggle Camera View Button */}
+      
+      {/* Toggle Camera Button */}
       <button
         onClick={() => setShowCamera(!showCamera)}
-        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 z-40"
+        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 z-40 transition"
       >
-        <span className="text-xl">👋</span>
+        <Hand size={20} />
         <span className="font-medium">
           {showCamera ? 'Hide' : 'Show'} Gesture Help
         </span>
       </button>
 
-      {/* Camera Feed (Small, Minimized) */}
+      {/* Camera Panel */}
       {showCamera && (
         <div className="fixed bottom-20 right-4 z-50">
           <div className="bg-white rounded-lg shadow-2xl overflow-hidden border-4 border-blue-500">
+            
             {/* Header */}
             <div className="bg-blue-500 text-white px-3 py-2 flex items-center justify-between">
               <span className="font-bold text-sm">Gesture Helper</span>
               <button
                 onClick={() => setShowCamera(false)}
-                className="text-white hover:text-gray-200 text-xl leading-none"
+                className="hover:text-gray-200 transition"
               >
-                ×
+                <X size={20} />
               </button>
             </div>
 
@@ -154,7 +162,7 @@ const GestureDetector = ({
                 </div>
               )}
 
-              {/* Gesture Progress Bar */}
+              {/* Hold Progress */}
               {currentGesture && confidence >= CONFIDENCE_THRESHOLD && (
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2">
                   <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
@@ -174,20 +182,20 @@ const GestureDetector = ({
             <div className="bg-gray-50 p-3 text-xs">
               <p className="font-bold text-gray-700 mb-2">Available Gestures:</p>
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-1">
-                  <span>✋</span>
+                <div className="flex items-center gap-2">
+                  <Hand size={14} className="text-red-500" />
                   <span className="text-gray-600">Need Help</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span>👍</span>
+                <div className="flex items-center gap-2">
+                  <ThumbsUp size={14} className="text-green-500" />
                   <span className="text-gray-600">Doing Great</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span>👎</span>
+                <div className="flex items-center gap-2">
+                  <ThumbsDown size={14} className="text-yellow-500" />
                   <span className="text-gray-600">Confused</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span>✌️</span>
+                <div className="flex items-center gap-2">
+                  <HandMetal size={14} className="text-blue-500" />
                   <span className="text-gray-600">Finished</span>
                 </div>
               </div>
@@ -196,7 +204,7 @@ const GestureDetector = ({
         </div>
       )}
 
-      {/* Gesture Indicator (Top Right) */}
+      {/* Top Right Gesture Indicator */}
       {currentGesture && confidence >= CONFIDENCE_THRESHOLD && (
         <GestureIndicator gesture={currentGesture} confidence={confidence} />
       )}
