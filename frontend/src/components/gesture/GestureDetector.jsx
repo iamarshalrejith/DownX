@@ -8,26 +8,32 @@ import {
   ThumbsUp,
   ThumbsDown,
   HandMetal,
-  X
+  X,
+  Camera,
+  AlertCircle
 } from 'lucide-react';
 
-const GestureDetector = ({ 
-  enrollmentId, 
-  taskId = null, 
+const GestureDetector = ({
+  enrollmentId,
+  taskId = null,
   isEnabled = true,
-  onGestureDetected = null 
+  onGestureDetected = null
 }) => {
+
+  // Declare state FIRST
+  const [showCamera, setShowCamera] = useState(false);
+  const [lastLoggedGesture, setLastLoggedGesture] = useState(null);
+  const [gestureHoldTime, setGestureHoldTime] = useState(0);
+
+  // Then call the hook
   const {
     videoRef,
     currentGesture,
     confidence,
     isLoading,
-    error
-  } = useGestureDetection(isEnabled);
-
-  const [lastLoggedGesture, setLastLoggedGesture] = useState(null);
-  const [gestureHoldTime, setGestureHoldTime] = useState(0);
-  const [showCamera, setShowCamera] = useState(false);
+    error,
+    cameraReady
+  } = useGestureDetection(isEnabled && showCamera);
 
   const CONFIDENCE_THRESHOLD = 0.7;
   const HOLD_DURATION = 2000;
@@ -57,7 +63,13 @@ const GestureDetector = ({
 
   // Log gesture to backend
   const logGesture = async (gestureType, confidenceScore) => {
+    if (!enrollmentId) {
+      console.warn('No enrollmentId provided');
+      return;
+    }
+
     try {
+      console.log(`Logging gesture: ${gestureType}`);
       const response = await axios.post('/api/gestures/log', {
         enrollmentId,
         gestureType,
@@ -68,7 +80,7 @@ const GestureDetector = ({
         }
       });
 
-      // Professional toast feedback (no emojis)
+      // Toast feedback with icons
       if (gestureType === 'raised_hand') {
         toast.success('Help request sent to your teacher!', {
           duration: 4000,
@@ -95,6 +107,8 @@ const GestureDetector = ({
         onGestureDetected(gestureType, response.data);
       }
 
+      console.log('Gesture logged successfully');
+
     } catch (error) {
       console.error('Error logging gesture:', error);
       toast.error('Could not send gesture signal');
@@ -109,7 +123,7 @@ const GestureDetector = ({
       {/* Toggle Camera Button */}
       <button
         onClick={() => setShowCamera(!showCamera)}
-        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 z-40 transition"
+        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 z-40 transition-all hover:scale-105"
       >
         <Hand size={20} />
         <span className="font-medium">
@@ -124,7 +138,10 @@ const GestureDetector = ({
             
             {/* Header */}
             <div className="bg-blue-500 text-white px-3 py-2 flex items-center justify-between">
-              <span className="font-bold text-sm">Gesture Helper</span>
+              <div className="flex items-center gap-2">
+                <Camera size={16} />
+                <span className="font-bold text-sm">Gesture Helper</span>
+              </div>
               <button
                 onClick={() => setShowCamera(false)}
                 className="hover:text-gray-200 transition"
@@ -133,41 +150,63 @@ const GestureDetector = ({
               </button>
             </div>
 
-            {/* Video Feed */}
-            <div className="relative">
+            {/* Video Feed Container */}
+            <div className="relative bg-gray-900">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
                 className="w-64 h-48 object-cover"
+                style={{ 
+                  display: cameraReady ? 'block' : 'none',
+                  transform: 'scaleX(-1)' // Mirror effect
+                }}
               />
 
-              {/* Loading Overlay */}
-              {isLoading && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              {/* Loading State */}
+              {(isLoading || !cameraReady) && !error && (
+                <div className="absolute inset-0 w-64 h-48 bg-gray-800 flex items-center justify-center">
                   <div className="text-white text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                    <p className="text-sm">Loading...</p>
+                    <p className="text-sm">
+                      {isLoading ? 'Loading model...' : 'Starting camera...'}
+                    </p>
                   </div>
                 </div>
               )}
 
-              {/* Error Overlay */}
+              {/* Error State */}
               {error && (
-                <div className="absolute inset-0 bg-red-500 bg-opacity-90 flex items-center justify-center">
+                <div className="absolute inset-0 w-64 h-48 bg-red-500 bg-opacity-90 flex items-center justify-center">
                   <div className="text-white text-center px-4">
-                    <p className="text-sm">{error}</p>
+                    <AlertCircle size={32} className="mx-auto mb-2" />
+                    <p className="text-xs font-semibold mb-2">Camera Error</p>
+                    <p className="text-xs">{error}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-3 bg-white text-red-500 px-3 py-1 rounded text-xs font-semibold hover:bg-gray-100 transition"
+                    >
+                      Reload Page
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Hold Progress */}
-              {currentGesture && confidence >= CONFIDENCE_THRESHOLD && (
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2">
+              {/* Camera Ready Indicator */}
+              {cameraReady && !error && (
+                <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  Live
+                </div>
+              )}
+
+              {/* Hold Progress Bar */}
+              {currentGesture && confidence >= CONFIDENCE_THRESHOLD && cameraReady && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 p-2">
                   <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-green-500 h-full transition-all duration-100"
+                      className="bg-green-500 h-full transition-all duration-100 ease-linear"
                       style={{ width: `${(gestureHoldTime / HOLD_DURATION) * 100}%` }}
                     />
                   </div>
@@ -179,24 +218,24 @@ const GestureDetector = ({
             </div>
 
             {/* Gesture Guide */}
-            <div className="bg-gray-50 p-3 text-xs">
-              <p className="font-bold text-gray-700 mb-2">Available Gestures:</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-2">
-                  <Hand size={14} className="text-red-500" />
-                  <span className="text-gray-600">Need Help</span>
+            <div className="bg-gray-50 p-3">
+              <p className="font-bold text-gray-700 mb-2 text-xs">Available Gestures:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2 bg-red-50 p-2 rounded border border-red-200">
+                  <Hand size={14} className="text-red-500 flex-shrink-0" />
+                  <span className="text-gray-700">Need Help</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <ThumbsUp size={14} className="text-green-500" />
-                  <span className="text-gray-600">Doing Great</span>
+                <div className="flex items-center gap-2 bg-green-50 p-2 rounded border border-green-200">
+                  <ThumbsUp size={14} className="text-green-500 flex-shrink-0" />
+                  <span className="text-gray-700">Doing Great</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <ThumbsDown size={14} className="text-yellow-500" />
-                  <span className="text-gray-600">Confused</span>
+                <div className="flex items-center gap-2 bg-yellow-50 p-2 rounded border border-yellow-200">
+                  <ThumbsDown size={14} className="text-yellow-500 flex-shrink-0" />
+                  <span className="text-gray-700">Confused</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <HandMetal size={14} className="text-blue-500" />
-                  <span className="text-gray-600">Finished</span>
+                <div className="flex items-center gap-2 bg-blue-50 p-2 rounded border border-blue-200">
+                  <HandMetal size={14} className="text-blue-500 flex-shrink-0" />
+                  <span className="text-gray-700">Finished</span>
                 </div>
               </div>
             </div>

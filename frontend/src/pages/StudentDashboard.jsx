@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../features/auth/authSlice";
 import { reset as resetStudent } from "../features/student/studentSlice";
+import GestureDetector from '../components/gesture/GestureDetector';
 import {
   getAllTasks,
   markTaskComplete,
@@ -21,6 +22,8 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
 
   const user = useSelector((state) => state.auth.user);
+  const { student } = useSelector((state) => state.students);
+  const enrollmentId = student?.enrollmentId;
   const { tasks = [], loading, error } = useSelector((state) => state.task);
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
@@ -314,6 +317,13 @@ const StudentDashboard = () => {
           </div>
         </div>
       )}
+      <GestureDetector 
+        enrollmentId={enrollmentId}
+        isEnabled={true}
+        onGestureDetected={(gestureType, data) => {
+          console.log('Gesture detected:', gestureType, data);
+        }}
+      />
     </div>
   );
 };

@@ -177,7 +177,7 @@ const ParentDashboardHome = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-4xl font-extrabold text-indigo-700 tracking-tight">
-            👨‍👩‍👧 Parent Dashboard
+            Parent Dashboard
           </h1>
         </div>
 
@@ -215,7 +215,7 @@ const ParentDashboardHome = () => {
         {/* Children List with Task Progress */}
         <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-md">
           <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-            👧 Child Activity
+            Child Activity
           </h2>
           {children.length > 0 ? (
             <ul className="space-y-4">

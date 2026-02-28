@@ -5,7 +5,8 @@ import {
   getHelpRequests,
   resolveGesture
 } from '../controller/gestureController.js';
-import { protect, roleGuard } from '../middleware/authmiddleware.js';
+import { protect} from '../middleware/authmiddleware.js';
+import { roleGuard } from '../middleware/roleGuard.js';
 
 const router = express.Router();
 

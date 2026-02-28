@@ -153,7 +153,7 @@ const TeacherDashboardHome = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
           <div>
             <h1 className="text-4xl font-extrabold text-indigo-700 tracking-tight">
-              👨‍🏫 Teacher Dashboard
+              Teacher Dashboard
             </h1>
           </div>
 
@@ -211,7 +211,7 @@ const TeacherDashboardHome = () => {
         {/* Students List with Task Details */}
         <div className="p-6 rounded-2xl bg-white/80 backdrop-blur-md border border-indigo-100 shadow-md">
           <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-            👩‍🎓 Your Students
+            Your Students
           </h2>
 
           {myStudents.length > 0 ? (
