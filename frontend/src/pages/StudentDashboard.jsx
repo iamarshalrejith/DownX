@@ -1,146 +1,129 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../features/auth/authSlice";
 import { reset as resetStudent } from "../features/student/studentSlice";
-import GestureDetector from '../components/gesture/GestureDetector';
 import {
   getAllTasks,
   markTaskComplete,
   unmarkTaskComplete,
 } from "../features/task/taskSlice";
+import GestureDetector from "../components/gesture/GestureDetector";
 import {
-  FaArrowLeft,
-  FaArrowRight,
-  FaRedo,
-  FaCheck,
-  FaStar,
+  FaArrowLeft, FaArrowRight, FaRedo, FaCheck, FaStar,
 } from "react-icons/fa";
 
-const StudentDashboard = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+/**
+ * Safely decode the enrollmentId from a JWT stored in localStorage.
+ * The student JWT payload: { id, enrollmentId, iat, exp }
+ */
+const getEnrollmentIdFromToken = (token) => {
+  try {
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.enrollmentId || null;
+  } catch {
+    return null;
+  }
+};
 
-  const user = useSelector((state) => state.auth.user);
-  const { student } = useSelector((state) => state.students);
-  const enrollmentId = student?.enrollmentId;
-  const { tasks = [], loading, error } = useSelector((state) => state.task);
+const StudentDashboard = () => {
+  const dispatch  = useDispatch();
+  const navigate  = useNavigate();
+
+  const user                            = useSelector((state) => state.auth.user);
+  const { tasks = [], loading, error }  = useSelector((state) => state.task);
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-  const [currentSteps, setCurrentSteps] = useState({});
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [currentSteps,     setCurrentSteps]     = useState({});
+  const [showCompleted,    setShowCompleted]     = useState(false);
 
+  // ── Derive the active token and enrollmentId ───────────────────────────────
+  const activeToken  = localStorage.getItem("studentToken") || user?.token;
+  const enrollmentId = useMemo(() => {
+    const studentToken = localStorage.getItem("studentToken");
+    // Prefer decoded from student JWT; fallback to redux student state
+    return (
+      getEnrollmentIdFromToken(studentToken) ||
+      user?.enrollmentId ||
+      null
+    );
+  }, [user]);
+
+  // ── Load tasks ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Check for student token first
-    const studentToken = localStorage.getItem('studentToken');
-    
-    if (studentToken) {
-      // Student is logged in via face/PIN
-      dispatch(getAllTasks(studentToken));
-    } else if (user?.token) {
-      // Fallback to regular user token
-      dispatch(getAllTasks(user.token));
+    if (activeToken) {
+      dispatch(getAllTasks(activeToken));
     } else {
-      // No token at all - redirect to login
       navigate("/student-login");
     }
-  }, [dispatch, user, navigate]);
+  }, [dispatch, activeToken, navigate]);
 
   const handleLogout = () => {
-    // Clear student token
-    localStorage.removeItem('studentToken');
-    
+    localStorage.removeItem("studentToken");
     dispatch(logout());
     dispatch(resetStudent());
     navigate("/", { replace: true });
   };
 
-  // Get the active token for task operations
-  const getActiveToken = () => {
-    return localStorage.getItem('studentToken') || user?.token;
-  };
-
-  const filteredTasks = tasks.filter((task) =>
-    showCompleted ? task.isCompleted : !task.isCompleted
-  );
-
-  const currentTask = filteredTasks[currentTaskIndex];
-  const taskId = currentTask?._id || currentTask?.id;
-  const steps = currentTask?.simplifiedSteps || [];
-  const currentStep = currentSteps[taskId] || 0;
-  const isTaskDone = currentTask?.isCompleted;
+  // ── Task helpers ───────────────────────────────────────────────────────────
+  const filteredTasks  = tasks.filter((t) => showCompleted ? t.isCompletedByMe : !t.isCompletedByMe);
+  const currentTask    = filteredTasks[currentTaskIndex];
+  const taskId         = currentTask?._id;
+  const steps          = currentTask?.simplifiedSteps || [];
+  const currentStep    = currentSteps[taskId] || 0;
+  const isTaskDone     = currentTask?.isCompletedByMe;
 
   const handleNextStep = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentSteps((prev) => ({ ...prev, [taskId]: currentStep + 1 }));
-    }
+    if (currentStep < steps.length - 1)
+      setCurrentSteps((p) => ({ ...p, [taskId]: currentStep + 1 }));
   };
-
   const handlePrevStep = () => {
-    if (currentStep > 0) {
-      setCurrentSteps((prev) => ({ ...prev, [taskId]: currentStep - 1 }));
-    }
+    if (currentStep > 0)
+      setCurrentSteps((p) => ({ ...p, [taskId]: currentStep - 1 }));
   };
-
-  const handleReset = () => {
-    setCurrentSteps((prev) => ({ ...prev, [taskId]: 0 }));
-  };
+  const handleReset    = () => setCurrentSteps((p) => ({ ...p, [taskId]: 0 }));
 
   const handleTaskDone = () => {
-    const token = getActiveToken();
-    if (token && taskId) {
-      dispatch(markTaskComplete({ id: taskId, token }));
-    }
+    if (activeToken && taskId)
+      dispatch(markTaskComplete({ id: taskId, token: activeToken }));
   };
-
   const handleUndoTask = () => {
-    const token = getActiveToken();
-    if (token && taskId) {
-      dispatch(unmarkTaskComplete({ id: taskId, token }));
-    }
+    if (activeToken && taskId)
+      dispatch(unmarkTaskComplete({ id: taskId, token: activeToken }));
   };
 
   const handleNextTask = () => {
-    if (currentTaskIndex < filteredTasks.length - 1) {
-      setCurrentTaskIndex((prev) => prev + 1);
-    }
+    if (currentTaskIndex < filteredTasks.length - 1)
+      setCurrentTaskIndex((p) => p + 1);
   };
-
   const handlePrevTask = () => {
-    if (currentTaskIndex > 0) {
-      setCurrentTaskIndex((prev) => prev - 1);
-    }
+    if (currentTaskIndex > 0)
+      setCurrentTaskIndex((p) => p - 1);
   };
 
+  // ── Loading / error states ─────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
-        <p className="text-xl text-blue-800 font-bold">Getting your tasks...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4" />
+        <p className="text-xl text-blue-800 font-bold">Getting your tasks…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50 text-center">
-        <p className="text-red-600 font-semibold text-lg mb-4">
-          Oops! Something went wrong.
-        </p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50 text-center px-4">
+        <p className="text-red-600 font-semibold text-lg mb-2">Oops! Something went wrong.</p>
         <p className="text-sm text-gray-600 mb-4">{error}</p>
         <button
-          onClick={() => {
-            const token = getActiveToken();
-            if (token) dispatch(getAllTasks(token));
-          }}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg"
+          onClick={() => { if (activeToken) dispatch(getAllTasks(activeToken)); }}
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg mb-3"
         >
           Try Again
         </button>
-        <button
-          onClick={() => navigate("/student-login")}
-          className="mt-4 text-blue-600 underline"
-        >
+        <button onClick={() => navigate("/student-login")} className="text-blue-600 underline text-sm">
           Back to Login
         </button>
       </div>
@@ -150,65 +133,53 @@ const StudentDashboard = () => {
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
-        <p className="text-gray-700 text-xl font-semibold">
-          No tasks right now
-        </p>
+        <p className="text-gray-700 text-xl font-semibold">No tasks right now 🌟</p>
       </div>
     );
   }
 
+  // ── Main UI ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-yellow-50 p-6">
-      {/* Header and Logout */}
+
+      {/* Header */}
       <div className="w-full flex justify-between items-center mb-6">
         <h1 className="text-3xl font-extrabold text-blue-800">
-          Hi {user?.name || 'Student'}!
+          Hi {user?.name || "Student"}! 👋
         </h1>
         <button
           onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg"
+          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition"
         >
           Log Out
         </button>
       </div>
 
-      {/* Toggle Buttons */}
+      {/* Tab Toggle */}
       <div className="flex justify-center gap-4 mb-6">
-        <button
-          onClick={() => {
-            setShowCompleted(false);
-            setCurrentTaskIndex(0);
-          }}
-          className={`px-6 py-3 text-lg font-bold rounded-full ${
-            !showCompleted
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-          }`}
-        >
-          Active Tasks
-        </button>
-        <button
-          onClick={() => {
-            setShowCompleted(true);
-            setCurrentTaskIndex(0);
-          }}
-          className={`px-6 py-3 text-lg font-bold rounded-full ${
-            showCompleted
-              ? "bg-green-600 text-white"
-              : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-          }`}
-        >
-          Completed Tasks
-        </button>
+        {[
+          { label: "Active Tasks",    active: !showCompleted, onClick: () => { setShowCompleted(false); setCurrentTaskIndex(0); }, color: "blue"  },
+          { label: "Completed Tasks", active:  showCompleted, onClick: () => { setShowCompleted(true);  setCurrentTaskIndex(0); }, color: "green" },
+        ].map(({ label, active, onClick, color }) => (
+          <button
+            key={label}
+            onClick={onClick}
+            className={`px-6 py-3 text-lg font-bold rounded-full transition ${
+              active
+                ? `bg-${color}-600 text-white`
+                : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Show message if no tasks in current filter */}
+      {/* Task Card */}
       {!filteredTasks.length ? (
-        <div className="flex flex-col items-center justify-center bg-white shadow-lg rounded-2xl p-10 border-4 border-blue-400 max-w-xl w-full">
-          <p className="text-gray-700 text-xl font-semibold text-center">
-            {showCompleted
-              ? "No completed tasks yet!"
-              : "All tasks are completed!"}
+        <div className="bg-white shadow-lg rounded-2xl p-10 border-4 border-blue-400 max-w-xl w-full text-center">
+          <p className="text-gray-700 text-xl font-semibold">
+            {showCompleted ? "No completed tasks yet!" : "All tasks are completed! 🎉"}
           </p>
         </div>
       ) : (
@@ -216,17 +187,14 @@ const StudentDashboard = () => {
           <h2 className="text-2xl font-bold text-blue-700 mb-4">
             Task {currentTaskIndex + 1} of {filteredTasks.length}
           </h2>
-
           <h3 className="text-xl font-semibold text-gray-800 mb-2">
             {currentTask.title || "Untitled Task"}
           </h3>
-
           <p className="text-md text-gray-600 mb-6">
             {currentTask.description || "No description provided."}
           </p>
 
-          {/* Task Completion States */}
-          {!currentTask ? null : isTaskDone ? (
+          {isTaskDone ? (
             <div className="p-4 bg-green-100 border-2 border-green-500 rounded-xl text-green-700 font-bold text-lg flex flex-col items-center">
               <FaStar className="text-green-600 mb-3" size={35} />
               <p className="mb-4">Great job! You finished this task!</p>
@@ -234,7 +202,7 @@ const StudentDashboard = () => {
                 onClick={handleUndoTask}
                 className="bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-semibold py-2 px-5 rounded-lg flex items-center gap-2"
               >
-                <FaArrowLeft /> Undo – I pressed by mistake
+                <FaArrowLeft /> Undo – pressed by mistake
               </button>
             </div>
           ) : (
@@ -242,7 +210,6 @@ const StudentDashboard = () => {
               <h4 className="text-lg font-bold text-gray-800 mb-3">
                 Step {currentStep + 1} of {steps.length}
               </h4>
-
               <p className="bg-blue-100 text-blue-900 border-2 border-blue-400 rounded-xl p-5 text-lg mb-6">
                 {steps[currentStep]}
               </p>
@@ -251,7 +218,7 @@ const StudentDashboard = () => {
                 <button
                   onClick={handlePrevStep}
                   disabled={currentStep === 0}
-                  className={`w-full py-3 text-lg rounded-lg font-semibold flex items-center justify-center gap-2 ${
+                  className={`w-full py-3 text-lg rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
                     currentStep === 0
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
@@ -262,7 +229,7 @@ const StudentDashboard = () => {
 
                 <button
                   onClick={handleReset}
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition"
                 >
                   <FaRedo /> Start Over
                 </button>
@@ -270,7 +237,7 @@ const StudentDashboard = () => {
                 <button
                   onClick={handleNextStep}
                   disabled={currentStep === steps.length - 1}
-                  className={`w-full py-3 text-lg rounded-lg font-semibold flex items-center justify-center gap-2 ${
+                  className={`w-full py-3 text-lg rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
                     currentStep === steps.length - 1
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
@@ -282,8 +249,7 @@ const StudentDashboard = () => {
 
               <button
                 onClick={handleTaskDone}
-                disabled={isTaskDone}
-                className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white text-2xl font-extrabold py-5 rounded-full flex items-center justify-center gap-3 shadow-lg focus:ring-4 focus:ring-green-300 transition-all transform hover:scale-105"
+                className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white text-2xl font-extrabold py-5 rounded-full flex items-center justify-center gap-3 shadow-lg transition-all transform hover:scale-105 focus:ring-4 focus:ring-green-300"
               >
                 I Did It! <FaCheck size={28} />
               </button>
@@ -295,33 +261,36 @@ const StudentDashboard = () => {
             <button
               onClick={handlePrevTask}
               disabled={currentTaskIndex === 0}
-              className={`px-5 py-2 rounded-lg text-lg font-semibold flex items-center justify-center gap-2 ${
+              className={`px-5 py-2 rounded-lg text-lg font-semibold flex items-center gap-2 transition ${
                 currentTaskIndex === 0
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-blue-500 text-white hover:bg-blue-600"
               }`}
             >
-              <FaArrowLeft /> Previous Task
+              <FaArrowLeft /> Previous
             </button>
             <button
               onClick={handleNextTask}
               disabled={currentTaskIndex === filteredTasks.length - 1}
-              className={`px-5 py-2 rounded-lg text-lg font-semibold flex items-center justify-center gap-2 ${
+              className={`px-5 py-2 rounded-lg text-lg font-semibold flex items-center gap-2 transition ${
                 currentTaskIndex === filteredTasks.length - 1
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-blue-500 text-white hover:bg-blue-600"
               }`}
             >
-              Next Task <FaArrowRight />
+              Next <FaArrowRight />
             </button>
           </div>
         </div>
       )}
-      <GestureDetector 
+
+      {/* ── Day 30–31: Gesture Detector ───────────────────────────────────── */}
+      <GestureDetector
         enrollmentId={enrollmentId}
+        taskId={taskId || null}
         isEnabled={true}
         onGestureDetected={(gestureType, data) => {
-          console.log('Gesture detected:', gestureType, data);
+          console.log("Gesture event logged:", gestureType, data);
         }}
       />
     </div>
