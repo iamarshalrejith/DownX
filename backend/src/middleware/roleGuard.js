@@ -1,30 +1,22 @@
-
 /**
  * Role-based access control middleware
- * Usage:
- *   roleGuard("teacher")
- *   roleGuard("teacher", "parent")
+ * Supports both: roleGuard("teacher", "parent") AND roleGuard(["teacher","parent"])
  */
+export const roleGuard = (...args) => {
+  // Flatten: handle roleGuard(["a","b"]) and roleGuard("a","b") identically
+  const allowedRoles = args.flat();
 
-export const roleGuard = (...allowedRoles) => {
   return (req, res, next) => {
-    // req.user is assumed to be set by auth middleware
     if (!req.user) {
-      return res.status(401).json({
-        message: "Authentication required",
-      });
+      return res.status(401).json({ message: "Authentication required" });
     }
 
-    const userRole = req.user.role;
-
-    if (!allowedRoles.includes(userRole)) {
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
-        message: "Access denied for this role",
+        message: `Access denied. Required roles: ${allowedRoles.join(", ")}`,
       });
     }
 
     next();
   };
 };
-
-

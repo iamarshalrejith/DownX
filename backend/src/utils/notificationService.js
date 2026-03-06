@@ -1,16 +1,24 @@
-// For now, this will log to console
-// Later (Day 46+), integrate with WebSockets or push notifications
+/**
+ * Notification Service
+ *
+ * Day 46+  : Replace with Socket.io real-time push
+ */
 
 export const notifyTeacher = async (student, gestureEvent) => {
   try {
-    console.log(`HELP REQUEST from ${student.firstName} ${student.lastName}`);
-    console.log(`Enrollment ID: ${student.enrollmentId}`);
-    console.log(`Gesture: ${gestureEvent.gestureType}`);
-    console.log(`Confidence: ${gestureEvent.confidence}`);
-    console.log(`Task: ${gestureEvent.taskId || "No active task"}`);
+    console.log("════════════════════════════════════════");
+    console.log(" HELP REQUEST RECEIVED");
+    console.log("════════════════════════════════════════");
+    console.log(`  Student     : ${student.name}`);
+    console.log(`  Enrollment  : ${student.enrollmentId}`);
+    console.log(`  Gesture     : ${gestureEvent.gestureType.replace(/_/g, " ").toUpperCase()}`);
+    console.log(`  Confidence  : ${(gestureEvent.confidence * 100).toFixed(0)}%`);
+    console.log(`  Task        : ${gestureEvent.taskId || "No active task"}`);
+    console.log(`  Time        : ${new Date().toLocaleString()}`);
+    console.log("════════════════════════════════════════");
 
-    // TODO: Implement real-time notification (WebSocket/Socket.io)
-    // For MVP, teachers will poll the /api/gestures/help-requests endpoint
+    // TODO (Day 46+): emit via Socket.io
+    // io.to(`teacher_${caretakerId}`).emit("help_request", { student, gestureEvent });
 
     return true;
   } catch (error) {
