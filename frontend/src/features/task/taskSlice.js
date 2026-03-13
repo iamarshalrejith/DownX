@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import taskService from "../../api/taskService.js";
 
-// Thunk - Mark Task as complete
+// Mark complete 
 export const markTaskComplete = createAsyncThunk(
   "task/markTaskComplete",
   async ({ id, token }, { rejectWithValue }) => {
@@ -9,7 +9,6 @@ export const markTaskComplete = createAsyncThunk(
       const response = await taskService.markTaskComplete(id, token);
       return { id, message: response.message };
     } catch (err) {
-      console.error("Error in markTaskComplete:", err);
       return rejectWithValue(
         err.response?.data?.message || err.message || "Failed to complete task"
       );
@@ -17,7 +16,7 @@ export const markTaskComplete = createAsyncThunk(
   }
 );
 
-// Thunk - Unmark task
+// Unmark complete 
 export const unmarkTaskComplete = createAsyncThunk(
   "task/unmarkTaskComplete",
   async ({ id, token }, { rejectWithValue }) => {
@@ -26,20 +25,17 @@ export const unmarkTaskComplete = createAsyncThunk(
       return { id, message: response.message };
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to revert task completion"
+        err.response?.data?.message || err.message || "Failed to revert task"
       );
     }
   }
 );
 
-// Thunk: Create Simplified Task (AI + DB Orchestration)
+// Create simplified task (AI + DB) 
 export const createSimplifiedTask = createAsyncThunk(
   "task/createSimplifiedTask",
   async ({ taskData, token }, { rejectWithValue }) => {
     try {
-      // Step 1: Call AI Simplification Endpoint
       const aiResponse = await taskService.simplifyInstruction(
         taskData.originalInstructions,
         token
@@ -49,29 +45,20 @@ export const createSimplifiedTask = createAsyncThunk(
         throw new Error("AI did not return valid simplified steps");
       }
 
-      // Step 2: Merge AI steps into taskData
-      const finalTaskData = {
-        ...taskData,
-        simplifiedSteps: aiResponse.steps,
-      };
-
-      // Step 3: Save Final Task to Database
-      const savedTask = await taskService.createTask(finalTaskData, token);
-
-      return savedTask;
+      const finalTaskData = { ...taskData, simplifiedSteps: aiResponse.steps };
+      return await taskService.createTask(finalTaskData, token);
     } catch (error) {
-      console.error("Error in createSimplifiedTask:", error);
       return rejectWithValue(
         error.response?.data?.message ||
           error.response?.data?.error ||
           error.message ||
-          "Failed to create simplified task"
+          "Failed to create task"
       );
     }
   }
 );
 
-// Thunk: Get All Tasks
+// Get all tasks 
 export const getAllTasks = createAsyncThunk(
   "task/getAllTasks",
   async (token, { rejectWithValue }) => {
@@ -79,96 +66,90 @@ export const getAllTasks = createAsyncThunk(
       return await taskService.getTasks(token);
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to fetch tasks"
+        error.response?.data?.message || error.message || "Failed to fetch tasks"
       );
     }
   }
 );
 
-// Initial State
+// Day 38: Verify objects
+export const verifyObjectForTask = createAsyncThunk(
+  "task/verifyObjectForTask",
+  async ({ taskId, enrollmentId, detectedObjects, confidenceScores }, { rejectWithValue }) => {
+    try {
+      const result = await taskService.verifyObjectForTask(
+        taskId,
+        enrollmentId,
+        detectedObjects,
+        confidenceScores
+      );
+      return { taskId, ...result };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Verification failed"
+      );
+    }
+  }
+);
 
-const initialState = {
-  tasks: [],
-  currentTask: null,
-  loading: false,
-  success: false,
-  error: null,
-};
-
-// Slice
+//  Slice 
 const taskSlice = createSlice({
   name: "task",
-  initialState,
+  initialState: {
+    tasks:        [],
+    currentTask:  null,
+    loading:      false,
+    success:      false,
+    error:        null,
+    // Tracks which tasks have been object-verified this session
+    verifiedTasks: {},
+  },
   reducers: {
     resetTaskState: (state) => {
-      state.loading = false;
-      state.success = false;
-      state.error = null;
+      state.loading     = false;
+      state.success     = false;
+      state.error       = null;
       state.currentTask = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      /* --- Create Simplified Task --- */
-      .addCase(createSimplifiedTask.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(createSimplifiedTask.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
-        state.currentTask = action.payload;
-        state.tasks.unshift(action.payload);
-      })
-      .addCase(createSimplifiedTask.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
+      // Create
+      .addCase(createSimplifiedTask.pending,   (s) => { s.loading = true; s.error = null; })
+      .addCase(createSimplifiedTask.fulfilled, (s, a) => { s.loading = false; s.success = true; s.currentTask = a.payload; s.tasks.unshift(a.payload); })
+      .addCase(createSimplifiedTask.rejected,  (s, a) => { s.loading = false; s.error = a.payload; })
 
-      /* --- Get All Tasks --- */
-      .addCase(getAllTasks.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(getAllTasks.fulfilled, (state, action) => {
-        state.loading = false;
-        state.tasks = action.payload;
-      })
-      .addCase(getAllTasks.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
+      // Get all
+      .addCase(getAllTasks.pending,   (s) => { s.loading = true; })
+      .addCase(getAllTasks.fulfilled, (s, a) => { s.loading = false; s.tasks = a.payload; })
+      .addCase(getAllTasks.rejected,  (s, a) => { s.loading = false; s.error = a.payload; })
 
-      /* --- Mark Task Complete --- */
-      .addCase(markTaskComplete.pending, (state) => {
-        state.loading = true;
+      // Mark complete
+      .addCase(markTaskComplete.pending,   (s) => { s.loading = true; })
+      .addCase(markTaskComplete.fulfilled, (s, a) => {
+        s.loading = false; s.success = true;
+        const t = s.tasks.find((t) => t._id === a.payload.id);
+        if (t) { t.isCompleted = true; t.isCompletedByMe = true; }
       })
-      .addCase(markTaskComplete.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
+      .addCase(markTaskComplete.rejected,  (s, a) => { s.loading = false; s.error = a.payload; })
 
-        const task = state.tasks.find((t) => t._id === action.payload.id);
-        if (task) task.isCompleted = true;
+      // Unmark complete
+      .addCase(unmarkTaskComplete.pending,   (s) => { s.loading = true; })
+      .addCase(unmarkTaskComplete.fulfilled, (s, a) => {
+        s.loading = false; s.success = true;
+        const t = s.tasks.find((t) => t._id === a.payload.id);
+        if (t) { t.isCompleted = false; t.isCompletedByMe = false; }
       })
-      .addCase(markTaskComplete.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-      .addCase(unmarkTaskComplete.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(unmarkTaskComplete.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
+      .addCase(unmarkTaskComplete.rejected, (s, a) => { s.loading = false; s.error = a.payload; })
 
-        const task = state.tasks.find((t) => t._id === action.payload.id);
-        if (task) task.isCompleted = false;
+      // Verify objects
+      .addCase(verifyObjectForTask.fulfilled, (s, a) => {
+        if (a.payload.verified) {
+          s.verifiedTasks[a.payload.taskId] = true;
+        }
       })
-
-      .addCase(unmarkTaskComplete.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+      .addCase(verifyObjectForTask.rejected, (s, a) => {
+        console.error("Object verification failed:", a.payload);
       });
   },
 });

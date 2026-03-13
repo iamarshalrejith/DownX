@@ -59,8 +59,22 @@ const taskSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    objectVerification: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      requiredObjects: {
+        type: [String],
+        default: [],
+      },
+      verificationInstruction: {
+        type: String,
+        default: "",
+      },
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Task = mongoose.model("Task", taskSchema);

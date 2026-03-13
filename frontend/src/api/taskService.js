@@ -1,109 +1,113 @@
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
+const API_URL  = `${BASE_URL}/api/tasks/`;
+const AI_URL   = `${BASE_URL}/api/ai/simplify`;
 
-// task api url
-const API_URL = `${BASE_URL}/api/tasks/`;
-
-// ai simplification api url
-const AI_URL = `${BASE_URL}/api/ai/simplify`;
-
-// simplify Instruction
+//  AI Simplification 
 const simplifyInstruction = async (inputText, token) => {
   try {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-    const response = await axios.post(AI_URL, { inputText }, config);
+    const response = await axios.post(
+      AI_URL,
+      { inputText },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
     return response.data;
   } catch (error) {
-    console.error("Simplify API Error:", error);
     return Promise.reject(
       error.response?.data || { message: "Failed to simplify instructions" }
     );
   }
 };
 
-// create a new task
+//  Create task 
 const createTask = async (taskData, token) => {
   try {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-    const response = await axios.post(API_URL, taskData, config);
+    const response = await axios.post(API_URL, taskData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return response.data;
   } catch (error) {
-    console.error("Create task error:", error);
     return Promise.reject(
       error.response?.data || { message: "Failed to create task" }
     );
   }
 };
 
-// get all tasks
+//  Get all tasks 
 const getTasks = async (token) => {
   try {
-    const config = {
+    const response = await axios.get(API_URL, {
       headers: { Authorization: `Bearer ${token}` },
-    };
-    const response = await axios.get(API_URL, config);
+    });
     return response.data;
   } catch (error) {
-    console.error("Get Tasks Error:", error);
     return Promise.reject(
       error.response?.data || { message: "Failed to fetch tasks" }
     );
   }
 };
 
-// get task by id
+//  Get task by id
 const getTaskById = async (id, token) => {
   try {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-    const response = await axios.get(`${API_URL}${id}`, config);
+    const response = await axios.get(`${API_URL}${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return response.data;
   } catch (error) {
     return Promise.reject(
-      error.response?.data || { message: "Failed to fetch task details" }
+      error.response?.data || { message: "Failed to fetch task" }
     );
   }
 };
 
+// Mark complete 
 const markTaskComplete = async (id, token) => {
   try {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-
-    const response = await axios.put(`${API_URL}complete/${id}`, {}, config);
+    const response = await axios.put(`${API_URL}complete/${id}`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return response.data;
   } catch (error) {
-    console.error("Mark Task Complete Error:", error);
     return Promise.reject(
       error.response?.data || { message: "Failed to mark task complete" }
     );
   }
 };
 
+// Unmark complete
 const unmarkTaskComplete = async (id, token) => {
   try {
-    const config = { headers: { Authorization: `Bearer ${token}` } };
-    const response = await axios.put(`${API_URL}uncomplete/${id}`, {}, config);
+    const response = await axios.put(`${API_URL}uncomplete/${id}`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return response.data;
   } catch (error) {
-    console.error("Unmark Task Complete Error:", error);
     return Promise.reject(
-      error.response?.data || { message: "Failed to revert task completion" }
+      error.response?.data || { message: "Failed to revert task" }
+    );
+  }
+};
+
+// Verify objects for a task 
+/**
+ * @param {string}   taskId
+ * @param {string}   enrollmentId
+ * @param {string[]} detectedObjects   - labels detected by TF model
+ * @param {Object}   confidenceScores  - { label: score }
+ */
+const verifyObjectForTask = async (taskId, enrollmentId, detectedObjects, confidenceScores = {}) => {
+  try {
+    const response = await axios.post(`${API_URL}${taskId}/verify-object`, {
+      enrollmentId,
+      detectedObjects,
+      confidenceScores,
+    });
+    return response.data;
+  } catch (error) {
+    return Promise.reject(
+      error.response?.data || { message: "Failed to verify objects" }
     );
   }
 };
@@ -115,7 +119,7 @@ const taskService = {
   getTaskById,
   markTaskComplete,
   unmarkTaskComplete,
+  verifyObjectForTask,
 };
 
 export default taskService;
-

@@ -6,7 +6,7 @@ import {
   updateTask,
   deleteTask,
   completeTask,
-  uncompleteTask
+  uncompleteTask,
 } from "../controller/taskController.js";
 import { protect } from "../middleware/authmiddleware.js";
 
@@ -29,10 +29,20 @@ router.put("/:id", protect, updateTask);
 router.delete("/:id", protect, deleteTask);
 
 // mark task as completed
-router.put("/complete/:id",protect,completeTask);
+router.put("/complete/:id", protect, completeTask);
 
 // unmark task
 router.put("/uncomplete/:id", protect, uncompleteTask);
 
+// Student submits detected objects for verification
+router.post("/:id/verify-object", verifyObjectForTask);
+
+// Teacher/parent views verification history
+router.get(
+  "/:id/verify-object",
+  protect,
+  roleGuard("teacher", "parent"),
+  getVerificationLogs,
+);
 
 export default router;
