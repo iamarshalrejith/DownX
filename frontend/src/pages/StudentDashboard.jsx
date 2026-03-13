@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../features/auth/authSlice";
@@ -7,15 +7,22 @@ import {
   getAllTasks,
   markTaskComplete,
   unmarkTaskComplete,
+  verifyObjectForTask,
 } from "../features/task/taskSlice";
 import GestureDetector from "../components/gesture/GestureDetector";
+import ObjectDetector from "../components/object/ObjectDetector";
+import toast from "react-hot-toast";
 import {
-  FaArrowLeft, FaArrowRight, FaRedo, FaCheck, FaStar,
+  FaArrowLeft,
+  FaArrowRight,
+  FaRedo,
+  FaCheck,
+  FaStar,
 } from "react-icons/fa";
 
 /**
- * Safely decode the enrollmentId from a JWT stored in localStorage.
- * The student JWT payload: { id, enrollmentId, iat, exp }
+ * Decode enrollmentId from the studentToken JWT
+ * Payload: { id, enrollmentId, iat, exp }
  */
 const getEnrollmentIdFromToken = (token) => {
   try {
@@ -28,29 +35,28 @@ const getEnrollmentIdFromToken = (token) => {
 };
 
 const StudentDashboard = () => {
-  const dispatch  = useDispatch();
-  const navigate  = useNavigate();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const user                            = useSelector((state) => state.auth.user);
-  const { tasks = [], loading, error }  = useSelector((state) => state.task);
+  const user = useSelector((state) => state.auth.user);
+  const {
+    tasks = [],
+    loading,
+    error,
+    verifiedTasks,
+  } = useSelector((state) => state.task);
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-  const [currentSteps,     setCurrentSteps]     = useState({});
-  const [showCompleted,    setShowCompleted]     = useState(false);
+  const [currentSteps, setCurrentSteps] = useState({});
+  const [showCompleted, setShowCompleted] = useState(false);
 
-  // ── Derive the active token and enrollmentId ───────────────────────────────
-  const activeToken  = localStorage.getItem("studentToken") || user?.token;
+  const activeToken = localStorage.getItem("studentToken") || user?.token;
   const enrollmentId = useMemo(() => {
     const studentToken = localStorage.getItem("studentToken");
-    // Prefer decoded from student JWT; fallback to redux student state
-    return (
-      getEnrollmentIdFromToken(studentToken) ||
-      user?.enrollmentId ||
-      null
-    );
+    return getEnrollmentIdFromToken(studentToken) || user?.enrollmentId || null;
   }, [user]);
 
-  // ── Load tasks ─────────────────────────────────────────────────────────────
+  // Load tasks
   useEffect(() => {
     if (activeToken) {
       dispatch(getAllTasks(activeToken));
@@ -66,13 +72,21 @@ const StudentDashboard = () => {
     navigate("/", { replace: true });
   };
 
-  // ── Task helpers ───────────────────────────────────────────────────────────
-  const filteredTasks  = tasks.filter((t) => showCompleted ? t.isCompletedByMe : !t.isCompletedByMe);
-  const currentTask    = filteredTasks[currentTaskIndex];
-  const taskId         = currentTask?._id;
-  const steps          = currentTask?.simplifiedSteps || [];
-  const currentStep    = currentSteps[taskId] || 0;
-  const isTaskDone     = currentTask?.isCompletedByMe;
+  //  Task helpers
+  const filteredTasks = tasks.filter((t) =>
+    showCompleted ? t.isCompletedByMe : !t.isCompletedByMe,
+  );
+  const currentTask = filteredTasks[currentTaskIndex];
+  const taskId = currentTask?._id;
+  const steps = currentTask?.simplifiedSteps || [];
+  const currentStep = currentSteps[taskId] || 0;
+  const isTaskDone = currentTask?.isCompletedByMe;
+
+  // Object verification for current task
+  const objVerification = currentTask?.objectVerification;
+  const objVerifyEnabled =
+    objVerification?.enabled && objVerification?.requiredObjects?.length > 0;
+  const isObjVerified = verifiedTasks?.[taskId] || false;
 
   const handleNextStep = () => {
     if (currentStep < steps.length - 1)
@@ -82,7 +96,7 @@ const StudentDashboard = () => {
     if (currentStep > 0)
       setCurrentSteps((p) => ({ ...p, [taskId]: currentStep - 1 }));
   };
-  const handleReset    = () => setCurrentSteps((p) => ({ ...p, [taskId]: 0 }));
+  const handleReset = () => setCurrentSteps((p) => ({ ...p, [taskId]: 0 }));
 
   const handleTaskDone = () => {
     if (activeToken && taskId)
@@ -98,11 +112,32 @@ const StudentDashboard = () => {
       setCurrentTaskIndex((p) => p + 1);
   };
   const handlePrevTask = () => {
-    if (currentTaskIndex > 0)
-      setCurrentTaskIndex((p) => p - 1);
+    if (currentTaskIndex > 0) setCurrentTaskIndex((p) => p - 1);
   };
 
-  // ── Loading / error states ─────────────────────────────────────────────────
+  // Object verified callback
+  const handleObjectsVerified = useCallback(
+    (verifiedLabels) => {
+      if (!taskId || !enrollmentId) return;
+
+      const scores = {};
+      verifiedLabels.forEach((label) => (scores[label] = 1.0));
+
+      dispatch(
+        verifyObjectForTask({
+          taskId,
+          enrollmentId,
+          detectedObjects: verifiedLabels,
+          confidenceScores: scores,
+        }),
+      );
+
+      toast.success("📷 Task objects verified!", { duration: 3000 });
+    },
+    [taskId, enrollmentId, dispatch],
+  );
+
+  //  Loading / Error
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
@@ -115,15 +150,22 @@ const StudentDashboard = () => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50 text-center px-4">
-        <p className="text-red-600 font-semibold text-lg mb-2">Oops! Something went wrong.</p>
+        <p className="text-red-600 font-semibold text-lg mb-2">
+          Oops! Something went wrong.
+        </p>
         <p className="text-sm text-gray-600 mb-4">{error}</p>
         <button
-          onClick={() => { if (activeToken) dispatch(getAllTasks(activeToken)); }}
+          onClick={() => {
+            if (activeToken) dispatch(getAllTasks(activeToken));
+          }}
           className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg mb-3"
         >
           Try Again
         </button>
-        <button onClick={() => navigate("/student-login")} className="text-blue-600 underline text-sm">
+        <button
+          onClick={() => navigate("/student-login")}
+          className="text-blue-600 underline text-sm"
+        >
           Back to Login
         </button>
       </div>
@@ -133,15 +175,15 @@ const StudentDashboard = () => {
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
-        <p className="text-gray-700 text-xl font-semibold">No tasks right now 🌟</p>
+        <p className="text-gray-700 text-xl font-semibold">
+          No tasks right now 🌟
+        </p>
       </div>
     );
   }
 
-  // ── Main UI ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-yellow-50 p-6">
-
+    <div className="flex flex-col items-center justify-start min-h-screen bg-yellow-50 p-6 pb-32">
       {/* Header */}
       <div className="w-full flex justify-between items-center mb-6">
         <h1 className="text-3xl font-extrabold text-blue-800">
@@ -158,9 +200,25 @@ const StudentDashboard = () => {
       {/* Tab Toggle */}
       <div className="flex justify-center gap-4 mb-6">
         {[
-          { label: "Active Tasks",    active: !showCompleted, onClick: () => { setShowCompleted(false); setCurrentTaskIndex(0); }, color: "blue"  },
-          { label: "Completed Tasks", active:  showCompleted, onClick: () => { setShowCompleted(true);  setCurrentTaskIndex(0); }, color: "green" },
-        ].map(({ label, active, onClick, color }) => (
+          {
+            label: "Active Tasks",
+            active: !showCompleted,
+            color: "blue",
+            onClick: () => {
+              setShowCompleted(false);
+              setCurrentTaskIndex(0);
+            },
+          },
+          {
+            label: "Completed Tasks",
+            active: showCompleted,
+            color: "green",
+            onClick: () => {
+              setShowCompleted(true);
+              setCurrentTaskIndex(0);
+            },
+          },
+        ].map(({ label, active, color, onClick }) => (
           <button
             key={label}
             onClick={onClick}
@@ -179,25 +237,46 @@ const StudentDashboard = () => {
       {!filteredTasks.length ? (
         <div className="bg-white shadow-lg rounded-2xl p-10 border-4 border-blue-400 max-w-xl w-full text-center">
           <p className="text-gray-700 text-xl font-semibold">
-            {showCompleted ? "No completed tasks yet!" : "All tasks are completed! 🎉"}
+            {showCompleted
+              ? "No completed tasks yet!"
+              : "All tasks are completed! "}
           </p>
         </div>
       ) : (
         <div className="w-full max-w-xl bg-white shadow-lg rounded-2xl p-6 text-center border-4 border-blue-400">
-          <h2 className="text-2xl font-bold text-blue-700 mb-4">
+          <h2 className="text-2xl font-bold text-blue-700 mb-2">
             Task {currentTaskIndex + 1} of {filteredTasks.length}
           </h2>
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">
+          <h3 className="text-xl font-semibold text-gray-800 mb-1">
             {currentTask.title || "Untitled Task"}
           </h3>
-          <p className="text-md text-gray-600 mb-6">
+          <p className="text-md text-gray-600 mb-4">
             {currentTask.description || "No description provided."}
           </p>
+
+          {/* Object verification banner */}
+          {objVerifyEnabled && !isTaskDone && (
+            <div
+              className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 ${
+                isObjVerified
+                  ? "bg-green-100 border border-green-400 text-green-700"
+                  : "bg-purple-50 border border-purple-300 text-purple-700"
+              }`}
+            >
+              <span className="text-lg">{isObjVerified ? "✅" : "📷"}</span>
+              <span>
+                {isObjVerified
+                  ? "Objects verified by camera!"
+                  : objVerification.verificationInstruction ||
+                    `Show to camera: ${objVerification.requiredObjects.join(", ")}`}
+              </span>
+            </div>
+          )}
 
           {isTaskDone ? (
             <div className="p-4 bg-green-100 border-2 border-green-500 rounded-xl text-green-700 font-bold text-lg flex flex-col items-center">
               <FaStar className="text-green-600 mb-3" size={35} />
-              <p className="mb-4">Great job! You finished this task!</p>
+              <p className="mb-4">Great job! You finished this task! </p>
               <button
                 onClick={handleUndoTask}
                 className="bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-semibold py-2 px-5 rounded-lg flex items-center gap-2"
@@ -210,7 +289,7 @@ const StudentDashboard = () => {
               <h4 className="text-lg font-bold text-gray-800 mb-3">
                 Step {currentStep + 1} of {steps.length}
               </h4>
-              <p className="bg-blue-100 text-blue-900 border-2 border-blue-400 rounded-xl p-5 text-lg mb-6">
+              <p className="bg-blue-100 text-blue-900 border-2 border-blue-400 rounded-xl p-5 text-lg mb-5">
                 {steps[currentStep]}
               </p>
 
@@ -257,7 +336,7 @@ const StudentDashboard = () => {
           )}
 
           {/* Task Navigation */}
-          <div className="flex justify-between mt-8">
+          <div className="flex justify-between mt-6">
             <button
               onClick={handlePrevTask}
               disabled={currentTaskIndex === 0}
@@ -284,14 +363,22 @@ const StudentDashboard = () => {
         </div>
       )}
 
-      {/* ── Day 30–31: Gesture Detector ───────────────────────────────────── */}
+      {/* Gesture Detector  */}
       <GestureDetector
         enrollmentId={enrollmentId}
         taskId={taskId || null}
         isEnabled={true}
         onGestureDetected={(gestureType, data) => {
-          console.log("Gesture event logged:", gestureType, data);
+          console.log("Gesture logged:", gestureType, data);
         }}
+      />
+
+      {/* Object Detector  */}
+      <ObjectDetector
+        requiredObjects={objVerification?.requiredObjects || []}
+        taskId={taskId || null}
+        isEnabled={true}
+        onVerified={handleObjectsVerified}
       />
     </div>
   );
