@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import authService from "../../api/authService";
 
-// step 1 -> load user from local storage -> if already logged in
+// Load user from localStorage on startup
 let storedUser = null;
 try {
   const raw = localStorage.getItem("user");
@@ -18,110 +18,171 @@ const initialState = {
   message: "",
 };
 
-//--------------------------
-
-// step 2 -> define thunks
-// register user
+// Register
 export const register = createAsyncThunk(
-  "auth/register", // action name
+  "auth/register",
   async (userData, thunkAPI) => {
     try {
-      return await authService.register(userData); // talk to backend
+      return await authService.register(userData);
     } catch (error) {
-      const msg =
-        (typeof error === "object" && error?.message) ||
-        error.response?.data?.message ||
-        error.message ||
-        "Registration failed";
-      return thunkAPI.rejectWithValue(msg); // returns error message if it fails
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || error.message || "Registration failed",
+      );
     }
-  }
+  },
 );
 
-// login user
+// Login
 export const login = createAsyncThunk(
   "auth/login",
   async (userData, thunkAPI) => {
     try {
       return await authService.login(userData);
     } catch (error) {
-      const msg =
-        (typeof error === "object" && error?.message) ||
-        error.response?.data?.message ||
-        error.message ||
-        "Login failed";
-      return thunkAPI.rejectWithValue(msg);
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || error.message || "Login failed",
+      );
     }
-  }
+  },
 );
 
-// logout user
+// Logout
 export const logout = createAsyncThunk("auth/logout", async () => {
-  authService.logout();
+  localStorage.removeItem("user");
 });
 
-// ------------------------------
+//  Update Profile
+export const updateProfile = createAsyncThunk(
+  "auth/updateProfile",
+  async ({ name, email }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.user?.token;
+      const data = await authService.updateProfile({ name, email }, token);
+      return data.user; // backend returns { message, user: {..., token} }
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "Profile update failed",
+      );
+    }
+  },
+);
 
-// step 3 -> create auth slice
+// Change Password
+export const changePassword = createAsyncThunk(
+  "auth/changePassword",
+  async ({ currentPassword, newPassword }, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth.user?.token;
+      const data = await authService.changePassword(
+        { currentPassword, newPassword },
+        token,
+      );
+      return data.message;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "Password change failed",
+      );
+    }
+  },
+);
 
+// Slice
 const authSlice = createSlice({
   name: "auth",
-  initialState: initialState,
+  initialState,
   reducers: {
     reset: (state) => {
-      // contains reset flags and messages -> for clearing errors b/w attempts
       state.isLoading = false;
       state.isError = false;
       state.isSuccess = false;
       state.message = "";
     },
+    // Used internally to sync user object (e.g. after studentSlice updates)
     updateUser: (state, action) => {
       state.user = action.payload;
       localStorage.setItem("user", JSON.stringify(action.payload));
     },
   },
-
   extraReducers: (builder) => {
     builder
-      .addCase(register.pending, (state) => {
-        state.isLoading = true;
+      // Register
+      .addCase(register.pending, (s) => {
+        s.isLoading = true;
       })
-      .addCase(register.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
-        state.user = action.payload; // payload -> user data + token
+      .addCase(register.fulfilled, (s, a) => {
+        s.isLoading = false;
+        s.isSuccess = true;
+        s.user = a.payload;
       })
-      .addCase(register.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload; // error msg
-        state.user = null;
-      }) // register cases
+      .addCase(register.rejected, (s, a) => {
+        s.isLoading = false;
+        s.isError = true;
+        s.message = a.payload;
+        s.user = null;
+      })
 
-      .addCase(login.pending, (state) => {
-        state.isLoading = true;
+      // Login
+      .addCase(login.pending, (s) => {
+        s.isLoading = true;
       })
-      .addCase(login.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
-        state.user = action.payload;
+      .addCase(login.fulfilled, (s, a) => {
+        s.isLoading = false;
+        s.isSuccess = true;
+        s.user = a.payload;
+        localStorage.setItem("user", JSON.stringify(a.payload));
       })
-      .addCase(login.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-        state.user = null;
-      }) // login cases
+      .addCase(login.rejected, (s, a) => {
+        s.isLoading = false;
+        s.isError = true;
+        s.message = a.payload;
+        s.user = null;
+      })
 
-      .addCase(logout.fulfilled, (state) => {
-        state.user = null;
-        localStorage.removeItem("user");
+      // Logout
+      .addCase(logout.fulfilled, (s) => {
+        s.user = null;
+      })
+
+      // Update Profile
+      .addCase(updateProfile.pending, (s) => {
+        s.isLoading = true;
+        s.isError = false;
+        s.message = "";
+      })
+      .addCase(updateProfile.fulfilled, (s, a) => {
+        s.isLoading = false;
+        s.isSuccess = true;
+        s.user = { ...s.user, ...a.payload }; // merge fresh data + new token
+        localStorage.setItem("user", JSON.stringify(s.user));
+      })
+      .addCase(updateProfile.rejected, (s, a) => {
+        s.isLoading = false;
+        s.isError = true;
+        s.message = a.payload;
+      })
+
+      // Change Password
+      .addCase(changePassword.pending, (s) => {
+        s.isLoading = true;
+        s.isError = false;
+        s.message = "";
+      })
+      .addCase(changePassword.fulfilled, (s, a) => {
+        s.isLoading = false;
+        s.isSuccess = true;
+        s.message = a.payload;
+      })
+      .addCase(changePassword.rejected, (s, a) => {
+        s.isLoading = false;
+        s.isError = true;
+        s.message = a.payload;
       });
   },
 });
 
-// exporting action
 export const { reset, updateUser } = authSlice.actions;
-
-// export reducer
 export default authSlice.reducer;
