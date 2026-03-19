@@ -8,30 +8,34 @@ import {
   completeTask,
   uncompleteTask,
 } from "../controller/taskController.js";
+import {
+  verifyObjectForTask,
+  getVerificationLogs,
+} from "../controller/objectVerificationController.js";
 import { protect } from "../middleware/authmiddleware.js";
+import { roleGuard } from "../middleware/roleGuard.js";
 
 const router = express.Router();
 
-// routes or endpoints
-//Get all tasks
+// Get all tasks
 router.get("/", protect, getAllTasks);
 
-//Get task by id
+// Get task by id
 router.get("/:id", protect, getTaskById);
 
-//Create a task
+// Create a task
 router.post("/", protect, createTask);
 
-// Updating a task
+// Update a task
 router.put("/:id", protect, updateTask);
 
-// Deleting a task
+// Delete a task
 router.delete("/:id", protect, deleteTask);
 
-// mark task as completed
+// Mark task as completed
 router.put("/complete/:id", protect, completeTask);
 
-// unmark task
+// Unmark task
 router.put("/uncomplete/:id", protect, uncompleteTask);
 
 // Student submits detected objects for verification

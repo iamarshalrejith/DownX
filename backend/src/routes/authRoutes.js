@@ -1,13 +1,22 @@
 import express from "express";
-import { registerUser,loginUser } from "../controller/authController.js";
+import {
+  registerUser,
+  loginUser,
+  getMe,
+  updateProfile,
+  changePassword,
+} from "../controller/authController.js";
+import { protect } from "../middleware/authmiddleware.js";
 
 const router = express.Router();
 
-//Register user route
-router.post('/register', registerUser);
+// Public routes
+router.post("/register", registerUser);
+router.post("/login",    loginUser);
 
-//Login user route
-router.post('/login', loginUser);
+// Protected routes (require valid JWT)
+router.get("/me",              protect, getMe);
+router.put("/update-profile",  protect, updateProfile);
+router.put("/change-password", protect, changePassword);
 
-// export the router
 export default router;
