@@ -11,7 +11,11 @@ import {
 } from "../features/task/taskSlice";
 import GestureDetector from "../components/gesture/GestureDetector";
 import ObjectDetector from "../components/object/ObjectDetector";
+import SpeechTherapy from "../components/speech/SpeechTherapy";
+import PictogramBoard from "../components/PictogramBoard";
+import PointsBadge from "../components/PointsBadge";
 import toast from "react-hot-toast";
+import axios from "axios";
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -20,15 +24,12 @@ import {
   FaStar,
 } from "react-icons/fa";
 
-/**
- * Decode enrollmentId from the studentToken JWT
- * Payload: { id, enrollmentId, iat, exp }
- */
+const BASE_URL = import.meta.env.VITE_API_URL;
+
 const getEnrollmentIdFromToken = (token) => {
   try {
     if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.enrollmentId || null;
+    return JSON.parse(atob(token.split(".")[1])).enrollmentId || null;
   } catch {
     return null;
   }
@@ -38,31 +39,29 @@ const StudentDashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const user = useSelector((state) => state.auth.user);
+  const user = useSelector((s) => s.auth.user);
   const {
     tasks = [],
     loading,
     error,
     verifiedTasks,
-  } = useSelector((state) => state.task);
+  } = useSelector((s) => s.task);
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [currentSteps, setCurrentSteps] = useState({});
   const [showCompleted, setShowCompleted] = useState(false);
+  const [pointsRefresh, setPointsRefresh] = useState(0); // bump to refetch badge
 
   const activeToken = localStorage.getItem("studentToken") || user?.token;
   const enrollmentId = useMemo(() => {
-    const studentToken = localStorage.getItem("studentToken");
-    return getEnrollmentIdFromToken(studentToken) || user?.enrollmentId || null;
+    const st = localStorage.getItem("studentToken");
+    return getEnrollmentIdFromToken(st) || user?.enrollmentId || null;
   }, [user]);
 
   // Load tasks
   useEffect(() => {
-    if (activeToken) {
-      dispatch(getAllTasks(activeToken));
-    } else {
-      navigate("/student-login");
-    }
+    if (activeToken) dispatch(getAllTasks(activeToken));
+    else navigate("/student-login");
   }, [dispatch, activeToken, navigate]);
 
   const handleLogout = () => {
@@ -72,7 +71,7 @@ const StudentDashboard = () => {
     navigate("/", { replace: true });
   };
 
-  //  Task helpers
+  // Task helpers
   const filteredTasks = tasks.filter((t) =>
     showCompleted ? t.isCompletedByMe : !t.isCompletedByMe,
   );
@@ -81,8 +80,6 @@ const StudentDashboard = () => {
   const steps = currentTask?.simplifiedSteps || [];
   const currentStep = currentSteps[taskId] || 0;
   const isTaskDone = currentTask?.isCompletedByMe;
-
-  // Object verification for current task
   const objVerification = currentTask?.objectVerification;
   const objVerifyEnabled =
     objVerification?.enabled && objVerification?.requiredObjects?.length > 0;
@@ -99,9 +96,29 @@ const StudentDashboard = () => {
   const handleReset = () => setCurrentSteps((p) => ({ ...p, [taskId]: 0 }));
 
   const handleTaskDone = () => {
-    if (activeToken && taskId)
-      dispatch(markTaskComplete({ id: taskId, token: activeToken }));
+    if (!activeToken || !taskId) return;
+    dispatch(markTaskComplete({ id: taskId, token: activeToken }));
+
+    // Award gamification points for completing task
+    if (enrollmentId) {
+      axios
+        .post(`${BASE_URL}/api/gamification/award`, {
+          enrollmentId,
+          event: "task_complete",
+          taskId,
+        })
+        .then((res) => {
+          if (res.data.pointsAwarded > 0) {
+            toast.success(`🌟 +${res.data.pointsAwarded} points!`, {
+              duration: 2500,
+            });
+            setPointsRefresh((n) => n + 1);
+          }
+        })
+        .catch(() => {});
+    }
   };
+
   const handleUndoTask = () => {
     if (activeToken && taskId)
       dispatch(unmarkTaskComplete({ id: taskId, token: activeToken }));
@@ -119,10 +136,8 @@ const StudentDashboard = () => {
   const handleObjectsVerified = useCallback(
     (verifiedLabels) => {
       if (!taskId || !enrollmentId) return;
-
       const scores = {};
-      verifiedLabels.forEach((label) => (scores[label] = 1.0));
-
+      verifiedLabels.forEach((l) => (scores[l] = 1.0));
       dispatch(
         verifyObjectForTask({
           taskId,
@@ -131,13 +146,36 @@ const StudentDashboard = () => {
           confidenceScores: scores,
         }),
       );
+      toast.success("📷 Objects verified!", { duration: 3000 });
 
-      toast.success("📷 Task objects verified!", { duration: 3000 });
+      // Award points
+      axios
+        .post(`${BASE_URL}/api/gamification/award`, {
+          enrollmentId,
+          event: "object_verified",
+          taskId,
+        })
+        .then(() => setPointsRefresh((n) => n + 1))
+        .catch(() => {});
     },
     [taskId, enrollmentId, dispatch],
   );
 
-  //  Loading / Error
+  // Speech earned points callback
+  const handleSpeechPoints = useCallback((pts) => {
+    toast.success(`🎤 +${pts} points for great speech!`, { duration: 2500 });
+    setPointsRefresh((n) => n + 1);
+  }, []);
+
+  // Pictogram step done callback
+  const handlePictogramStepDone = useCallback(
+    (stepIndex) => {
+      if (stepIndex < steps.length - 1)
+        setCurrentSteps((p) => ({ ...p, [taskId]: stepIndex + 1 }));
+    },
+    [steps.length, taskId],
+  );
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
@@ -183,22 +221,29 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-yellow-50 p-6 pb-32">
+    <div className="flex flex-col items-center justify-start min-h-screen bg-yellow-50 p-4 pb-40">
       {/* Header */}
-      <div className="w-full flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-extrabold text-blue-800">
+      <div className="w-full max-w-xl flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-extrabold text-blue-800">
           Hi {user?.name || "Student"}! 👋
         </h1>
         <button
           onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition"
+          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm"
         >
           Log Out
         </button>
       </div>
 
+      {/* Points Badge */}
+      {enrollmentId && (
+        <div className="w-full max-w-xl mb-4">
+          <PointsBadge enrollmentId={enrollmentId} refresh={pointsRefresh} />
+        </div>
+      )}
+
       {/* Tab Toggle */}
-      <div className="flex justify-center gap-4 mb-6">
+      <div className="flex justify-center gap-4 mb-4 w-full max-w-xl">
         {[
           {
             label: "Active Tasks",
@@ -222,7 +267,7 @@ const StudentDashboard = () => {
           <button
             key={label}
             onClick={onClick}
-            className={`px-6 py-3 text-lg font-bold rounded-full transition ${
+            className={`flex-1 py-2.5 text-base font-bold rounded-full transition ${
               active
                 ? `bg-${color}-600 text-white`
                 : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -239,19 +284,19 @@ const StudentDashboard = () => {
           <p className="text-gray-700 text-xl font-semibold">
             {showCompleted
               ? "No completed tasks yet!"
-              : "All tasks are completed! "}
+              : "All tasks are done! 🎉"}
           </p>
         </div>
       ) : (
-        <div className="w-full max-w-xl bg-white shadow-lg rounded-2xl p-6 text-center border-4 border-blue-400">
-          <h2 className="text-2xl font-bold text-blue-700 mb-2">
+        <div className="w-full max-w-xl bg-white shadow-lg rounded-2xl p-5 border-4 border-blue-400">
+          <h2 className="text-xl font-bold text-blue-700 mb-1 text-center">
             Task {currentTaskIndex + 1} of {filteredTasks.length}
           </h2>
-          <h3 className="text-xl font-semibold text-gray-800 mb-1">
+          <h3 className="text-lg font-semibold text-gray-800 mb-1 text-center">
             {currentTask.title || "Untitled Task"}
           </h3>
-          <p className="text-md text-gray-600 mb-4">
-            {currentTask.description || "No description provided."}
+          <p className="text-sm text-gray-500 mb-4 text-center">
+            {currentTask.description || ""}
           </p>
 
           {/* Object verification banner */}
@@ -276,28 +321,29 @@ const StudentDashboard = () => {
           {isTaskDone ? (
             <div className="p-4 bg-green-100 border-2 border-green-500 rounded-xl text-green-700 font-bold text-lg flex flex-col items-center">
               <FaStar className="text-green-600 mb-3" size={35} />
-              <p className="mb-4">Great job! You finished this task! </p>
+              <p className="mb-4">Great job! You finished this task! 🎉</p>
               <button
                 onClick={handleUndoTask}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-semibold py-2 px-5 rounded-lg flex items-center gap-2"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white text-base font-semibold py-2 px-5 rounded-lg flex items-center gap-2 transition"
               >
                 <FaArrowLeft /> Undo – pressed by mistake
               </button>
             </div>
           ) : (
             <>
-              <h4 className="text-lg font-bold text-gray-800 mb-3">
-                Step {currentStep + 1} of {steps.length}
-              </h4>
-              <p className="bg-blue-100 text-blue-900 border-2 border-blue-400 rounded-xl p-5 text-lg mb-5">
-                {steps[currentStep]}
-              </p>
+              {/* PICTOGRAM BOARD — visual step cards */}
+              <PictogramBoard
+                steps={steps}
+                currentStep={currentStep}
+                onStepDone={handlePictogramStepDone}
+              />
 
-              <div className="flex flex-col gap-3">
+              {/* Step nav buttons */}
+              <div className="flex flex-col gap-2 mt-4">
                 <button
                   onClick={handlePrevStep}
                   disabled={currentStep === 0}
-                  className={`w-full py-3 text-lg rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
+                  className={`w-full py-3 text-base rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
                     currentStep === 0
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
@@ -308,7 +354,7 @@ const StudentDashboard = () => {
 
                 <button
                   onClick={handleReset}
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition"
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-base font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition"
                 >
                   <FaRedo /> Start Over
                 </button>
@@ -316,7 +362,7 @@ const StudentDashboard = () => {
                 <button
                   onClick={handleNextStep}
                   disabled={currentStep === steps.length - 1}
-                  className={`w-full py-3 text-lg rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
+                  className={`w-full py-3 text-base rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
                     currentStep === steps.length - 1
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
@@ -328,19 +374,19 @@ const StudentDashboard = () => {
 
               <button
                 onClick={handleTaskDone}
-                className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white text-2xl font-extrabold py-5 rounded-full flex items-center justify-center gap-3 shadow-lg transition-all transform hover:scale-105 focus:ring-4 focus:ring-green-300"
+                className="w-full mt-5 bg-green-600 hover:bg-green-700 text-white text-2xl font-extrabold py-5 rounded-full flex items-center justify-center gap-3 shadow-lg transition-all transform hover:scale-105 focus:ring-4 focus:ring-green-300"
               >
-                I Did It! <FaCheck size={28} />
+                I Did It! <FaCheck size={26} />
               </button>
             </>
           )}
 
-          {/* Task Navigation */}
-          <div className="flex justify-between mt-6">
+          {/* Task navigation */}
+          <div className="flex justify-between mt-5">
             <button
               onClick={handlePrevTask}
               disabled={currentTaskIndex === 0}
-              className={`px-5 py-2 rounded-lg text-lg font-semibold flex items-center gap-2 transition ${
+              className={`px-4 py-2 rounded-lg text-base font-semibold flex items-center gap-2 transition ${
                 currentTaskIndex === 0
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-blue-500 text-white hover:bg-blue-600"
@@ -351,7 +397,7 @@ const StudentDashboard = () => {
             <button
               onClick={handleNextTask}
               disabled={currentTaskIndex === filteredTasks.length - 1}
-              className={`px-5 py-2 rounded-lg text-lg font-semibold flex items-center gap-2 transition ${
+              className={`px-4 py-2 rounded-lg text-base font-semibold flex items-center gap-2 transition ${
                 currentTaskIndex === filteredTasks.length - 1
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-blue-500 text-white hover:bg-blue-600"
@@ -363,22 +409,29 @@ const StudentDashboard = () => {
         </div>
       )}
 
-      {/* Gesture Detector  */}
+      {/* Gesture Detector */}
       <GestureDetector
         enrollmentId={enrollmentId}
         taskId={taskId || null}
         isEnabled={true}
-        onGestureDetected={(gestureType, data) => {
-          console.log("Gesture logged:", gestureType, data);
-        }}
+        onGestureDetected={(g, d) => console.log("Gesture:", g, d)}
       />
 
-      {/* Object Detector  */}
+      {/* Object Detector */}
       <ObjectDetector
         requiredObjects={objVerification?.requiredObjects || []}
         taskId={taskId || null}
         isEnabled={true}
         onVerified={handleObjectsVerified}
+      />
+
+      {/* Speech Therapy — floating bottom-right */}
+      <SpeechTherapy
+        stepText={steps[currentStep] || ""}
+        stepIndex={currentStep}
+        taskId={taskId || null}
+        enrollmentId={enrollmentId}
+        onPointsEarned={handleSpeechPoints}
       />
     </div>
   );
