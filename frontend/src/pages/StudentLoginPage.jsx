@@ -1,3 +1,15 @@
+/**
+ * StudentLoginPage.jsx
+ *
+ * DS-FRIENDLY REDESIGN:
+ * 1. PIN emoji tiles are now huge (120×120px) with big tap targets
+ * 2. Warm sunny background instead of cold indigo
+ * 3. Text sizes bumped significantly throughout
+ * 4. Face login and PIN login buttons are very large
+ * 5. Clear visual feedback at every step
+ * 6. Simpler, warmer layout
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { studentLogin, reset } from "../features/student/studentSlice";
@@ -9,11 +21,25 @@ import LoadingDots from "../components/Loadingdots";
 import axios from "axios";
 
 const VISUAL_PINS = ["🌟", "🔥", "💧", "🍀"];
-const PIN_COLORS = [
-  "bg-indigo-300",
-  "bg-indigo-400",
-  "bg-indigo-500",
-  "bg-indigo-600",
+
+// Friendly warm palette per slot
+const SLOT_STYLES = [
+  {
+    active: "bg-yellow-300 border-yellow-500 shadow-yellow-200",
+    inactive: "bg-yellow-100 border-yellow-300",
+  },
+  {
+    active: "bg-orange-300 border-orange-500 shadow-orange-200",
+    inactive: "bg-orange-100 border-orange-300",
+  },
+  {
+    active: "bg-pink-300   border-pink-500   shadow-pink-200",
+    inactive: "bg-pink-100   border-pink-300",
+  },
+  {
+    active: "bg-green-300  border-green-500  shadow-green-200",
+    inactive: "bg-green-100  border-green-300",
+  },
 ];
 
 const StudentLoginPage = () => {
@@ -22,39 +48,35 @@ const StudentLoginPage = () => {
 
   const navigatedRef = useRef(false);
   const resetCalledRef = useRef(false);
-  const latestEnrollmentRef = useRef("");
+  const latestEnrollRef = useRef("");
 
   const [enrollmentId, setEnrollmentId] = useState("");
   const [visualPin, setVisualPin] = useState(["", "", "", ""]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [faceEnabled, setFaceEnabled] = useState(null);
-  const [loginMode, setLoginMode] = useState(null);
+  const [loginMode, setLoginMode] = useState(null); // null | "pin"
   const [checkingStudent, setCheckingStudent] = useState(false);
 
   const { student, isLoading, loginSuccess, isError, message } = useSelector(
-    (state) => state.students
+    (s) => s.students,
   );
 
-  /* ---------------- LOGIN SUCCESS ---------------- */
+  // Login success
   useEffect(() => {
     if (loginSuccess && student && !navigatedRef.current) {
       navigatedRef.current = true;
-
-      toast.success("Login successful!");
+      toast.success("Welcome! 🎉");
       setShowConfetti(true);
-
       navigate("/student-dashboard", { replace: true });
-
-      setTimeout(() => setShowConfetti(false), 2000);
+      setTimeout(() => setShowConfetti(false), 2500);
     }
   }, [loginSuccess, student, navigate]);
 
-  /* ---------------- ERROR HANDLING ---------------- */
+  // Error
   useEffect(() => {
     if (isError && !resetCalledRef.current) {
       resetCalledRef.current = true;
-      toast.error(message || "Login failed.");
-
+      toast.error(message || "Login failed. Try again!");
       setTimeout(() => {
         dispatch(reset());
         resetCalledRef.current = false;
@@ -62,183 +84,209 @@ const StudentLoginPage = () => {
     }
   }, [isError, message, dispatch]);
 
-  /* ---------------- RESET ON UNMOUNT ---------------- */
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       navigatedRef.current = false;
       resetCalledRef.current = false;
-    };
-  }, []);
+    },
+    [],
+  );
 
-  /* ---------------- RESET PIN WHEN ID CHANGES ---------------- */
+  // Reset PIN when enrollment ID changes
   useEffect(() => {
     setVisualPin(["", "", "", ""]);
     setLoginMode(null);
   }, [enrollmentId]);
 
-  /* ---------------- VISUAL PIN TAP ---------------- */
-  const handlePinTap = (index) => {
-    setVisualPin((prev) => {
-      const current = prev[index];
-      const nextIndex = current
-        ? (VISUAL_PINS.indexOf(current) + 1) % VISUAL_PINS.length
-        : 0;
-
-      const updated = [...prev];
-      updated[index] = VISUAL_PINS[nextIndex];
-      return updated;
-    });
-  };
-
-  /* ---------------- SUBMIT ---------------- */
-  const handleSubmit = () => {
-    if (checkingStudent) return;
-
-    if (!enrollmentId || visualPin.includes("")) {
-      toast.error(
-        "Please enter your Enrollment ID and complete the visual PIN"
-      );
-      return;
-    }
-
-    navigatedRef.current = false;
-    resetCalledRef.current = false;
-
-    dispatch(studentLogin({ enrollmentId, visualPin }));
-  };
-
-  /* ---------------- CHECK LOGIN OPTIONS ---------------- */
+  // Debounced student lookup
   useEffect(() => {
     if (!enrollmentId || enrollmentId.length < 3) {
       setFaceEnabled(null);
       setCheckingStudent(false);
       return;
     }
-
-    latestEnrollmentRef.current = enrollmentId;
+    latestEnrollRef.current = enrollmentId;
     setCheckingStudent(true);
 
-    const timeout = setTimeout(async () => {
+    const t = setTimeout(async () => {
       try {
         const res = await axios.post(
           `${import.meta.env.VITE_API_URL}/api/students/login-options`,
-          {
-            enrollmentId,
-          }
+          { enrollmentId },
         );
-
-        if (latestEnrollmentRef.current === enrollmentId) {
+        if (latestEnrollRef.current === enrollmentId)
           setFaceEnabled(res.data.faceEnabled);
-        }
-      } catch (err) {
-        console.error(err);
+      } catch {
         setFaceEnabled(null);
       } finally {
-        if (latestEnrollmentRef.current === enrollmentId) {
-          setCheckingStudent(false);
-        }
+        if (latestEnrollRef.current === enrollmentId) setCheckingStudent(false);
       }
     }, 700);
 
-    return () => clearTimeout(timeout);
+    return () => clearTimeout(t);
   }, [enrollmentId]);
 
+  const handlePinTap = (idx) => {
+    setVisualPin((prev) => {
+      const cur = prev[idx];
+      const nextIndex = cur
+        ? (VISUAL_PINS.indexOf(cur) + 1) % VISUAL_PINS.length
+        : 0;
+      const next = [...prev];
+      next[idx] = VISUAL_PINS[nextIndex];
+      return next;
+    });
+  };
+
+  const handleSubmit = () => {
+    if (checkingStudent) return;
+    if (!enrollmentId || visualPin.includes("")) {
+      toast.error("Please enter your ID and tap all 4 pictures!");
+      return;
+    }
+    navigatedRef.current = false;
+    resetCalledRef.current = false;
+    dispatch(studentLogin({ enrollmentId, visualPin }));
+  };
+
+  const allPinFilled = !visualPin.includes("");
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-200 via-indigo-300 to-indigo-500 p-6 relative">
+    <div className="min-h-screen bg-gradient-to-b from-yellow-100 via-orange-50 to-white flex flex-col items-center justify-start pt-10 pb-16 px-5 relative">
+      {/* Back button */}
       <button
         onClick={() => navigate("/")}
-        className="absolute top-4 left-4 w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-md hover:bg-gray-100 transition z-50"
-        title="Back"
+        className="absolute top-5 left-5 w-14 h-14 flex items-center justify-center rounded-2xl bg-white shadow-md hover:bg-gray-50 transition"
       >
-        <FiArrowLeft className="text-xl text-gray-700" />
+        <FiArrowLeft className="text-2xl text-gray-600" />
       </button>
 
       {showConfetti && (
-        <Confetti width={window.innerWidth} height={window.innerHeight} />
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+        />
       )}
 
-      <h1 className="text-5xl font-extrabold mb-10 text-gray-900 text-center animate-pulse">
-        Welcome!
-      </h1>
+      {/* Welcome heading */}
+      <div className="text-center mb-8 mt-6">
+        <div className="text-6xl mb-3">👋</div>
+        <h1 className="text-4xl font-extrabold text-orange-700">
+          Hello! Welcome Back
+        </h1>
+        <p className="text-xl text-gray-500 mt-2">Type your ID to start</p>
+      </div>
 
+      {/* Enrollment ID input */}
       <input
         type="text"
-        placeholder="Enter Enrollment ID"
+        placeholder="Your ID (e.g. DX-20260001)"
         value={enrollmentId}
-        onChange={(e) => setEnrollmentId(e.target.value)}
-        className="mb-12 p-5 text-2xl text-center rounded-3xl shadow-xl w-80 focus:outline-none focus:ring-8 focus:ring-indigo-400 placeholder:text-gray-500"
+        onChange={(e) => setEnrollmentId(e.target.value.toUpperCase())}
+        className="w-full max-w-sm p-5 text-2xl text-center rounded-3xl border-4 border-orange-300 bg-white shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300 placeholder:text-gray-300 mb-6 font-bold tracking-widest"
       />
 
+      {/* Checking indicator */}
       {checkingStudent && (
-        <div className="mt-6 text-center">
+        <div className="flex flex-col items-center gap-2 mb-6">
           <LoadingDots />
-          <p className="mt-2 text-lg text-gray-700">
-            Checking student details…
+          <p className="text-xl text-gray-500 font-semibold">
+            Looking for your account…
           </p>
         </div>
       )}
 
-      {/* ----------- PIN LOGIN UI ----------- */}
+      {/* ── Login options ─────────────────────────────────────────── */}
+
+      {/* Face login option */}
+      {!checkingStudent && faceEnabled === true && !loginMode && (
+        <div className="w-full max-w-sm flex flex-col gap-4 mb-2">
+          <button
+            onClick={() =>
+              navigate(`/student-face-login?enrollmentId=${enrollmentId}`)
+            }
+            className="w-full py-6 bg-indigo-600 hover:bg-indigo-700 text-white text-2xl font-extrabold rounded-3xl shadow-lg flex items-center justify-center gap-3 transition"
+          >
+            😊 Login with My Face
+          </button>
+          <button
+            onClick={() => setLoginMode("pin")}
+            className="w-full py-6 bg-orange-400 hover:bg-orange-500 text-white text-2xl font-extrabold rounded-3xl shadow-lg flex items-center justify-center gap-3 transition"
+          >
+            🌟 Login with Pictures
+          </button>
+        </div>
+      )}
+
+      {/* PIN only (no face) */}
+      {!checkingStudent && faceEnabled === false && !loginMode && (
+        <button
+          onClick={() => setLoginMode("pin")}
+          className="w-full max-w-sm py-7 bg-orange-400 hover:bg-orange-500 text-white text-2xl font-extrabold rounded-3xl shadow-xl flex items-center justify-center gap-3 transition"
+        >
+          🌟 Login with Pictures
+        </button>
+      )}
+
+      {/* ── PIN grid ──────────────────────────────────────────────── */}
       {loginMode === "pin" && (
-        <>
-          <div className="flex gap-6 mb-12 mt-10">
+        <div className="w-full max-w-sm flex flex-col items-center gap-6">
+          <p className="text-2xl font-extrabold text-gray-700 text-center">
+            Tap each picture to choose your secret
+          </p>
+
+          {/* 4 large emoji tiles */}
+          <div className="grid grid-cols-4 gap-3 w-full">
             {visualPin.map((val, idx) => (
               <button
                 key={idx}
                 onClick={() => handlePinTap(idx)}
-                className={`w-28 h-28 text-6xl rounded-3xl flex items-center justify-center shadow-2xl transform transition hover:scale-110 ${PIN_COLORS[idx]}`}
+                className={`h-24 text-5xl rounded-3xl border-4 flex items-center justify-center shadow-lg transition-all duration-150 active:scale-95 ${
+                  val
+                    ? `${SLOT_STYLES[idx].active} shadow-xl`
+                    : `${SLOT_STYLES[idx].inactive}`
+                }`}
               >
                 {val || "❔"}
               </button>
             ))}
           </div>
 
+          {/* Current pin display */}
+          <p className="text-xl text-gray-500 font-bold">
+            {visualPin.map((v) => v || "❔").join("  →  ")}
+          </p>
+
+          {/* GO button */}
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
-            className="px-20 py-6 text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 text-white rounded-3xl shadow-2xl"
+            disabled={isLoading || !allPinFilled}
+            className={`w-full py-7 text-3xl font-extrabold rounded-3xl shadow-xl flex items-center justify-center gap-3 transition-all ${
+              allPinFilled && !isLoading
+                ? "bg-green-500 hover:bg-green-600 text-white hover:scale-[1.02]"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+            }`}
           >
-            {isLoading ? <LoadingDots /> : "GO!"}
-          </button>
-        </>
-      )}
-
-      {/* ----------- FACE ENABLED ----------- */}
-      {!checkingStudent && faceEnabled === true && (
-        <div className="mt-8 space-y-4 w-full max-w-sm">
-          <button
-            onClick={() =>
-              navigate(`/student-face-login?enrollmentId=${enrollmentId}`)
-            }
-            className="w-full py-6 bg-indigo-950 text-white text-2xl rounded-2xl shadow-lg"
-          >
-            Login with Face
+            {isLoading ? <LoadingDots /> : "Let's Go! 🚀"}
           </button>
 
+          {/* Back to options */}
           <button
-            onClick={() => setLoginMode("pin")}
-            className="w-full py-6 bg-indigo-600 text-white text-2xl rounded-2xl shadow-lg"
+            onClick={() => setLoginMode(null)}
+            className="text-xl text-gray-400 hover:text-gray-600 underline transition"
           >
-            Login with Visual PIN
+            ← Other login options
           </button>
         </div>
       )}
 
-      {/* ----------- FACE DISABLED ----------- */}
-      {!checkingStudent && faceEnabled === false && (
-        <div className="mt-8 w-full max-w-sm">
-          <button
-            onClick={() => setLoginMode("pin")}
-            className="w-full py-6 bg-indigo-600 text-white text-2xl rounded-2xl shadow-lg"
-          >
-            Login with Visual PIN
-          </button>
-        </div>
+      {/* Helper text */}
+      {!loginMode && !checkingStudent && (
+        <p className="mt-8 text-xl text-gray-400 text-center max-w-sm">
+          Enter your ID above to see your login options
+        </p>
       )}
-
-      <p className="mt-10 text-2xl text-gray-800 text-center max-w-lg">
-        Tap the icons in your secret sequence to log in.
-      </p>
     </div>
   );
 };
