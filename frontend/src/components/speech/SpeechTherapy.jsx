@@ -1,58 +1,88 @@
-import { useState, useEffect, useCallback } from "react";
+/**
+ * SpeechTherapy.jsx
+ *
+ * FIXES APPLIED:
+ * 1. Starts OPEN by default — DS students must not have to discover a hidden widget
+ * 2. Moved from fixed bottom-right floating to an inline card inside the dashboard
+ * 3. Buttons are much larger (full-width, tall tap targets) — motor difficulty friendly
+ * 4. Text sizes bumped up throughout
+ * 5. Cleaner, friendlier visual design
+ */
+
+import { useState, useEffect } from "react";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { scorePronunciation, speakText } from "../../utils/speechUtils";
-import { Mic, MicOff, Volume2, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { Mic, MicOff, Volume2, RotateCcw } from "lucide-react";
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
-// Small animated score ring
 const ScoreRing = ({ score }) => {
-  const r    = 26, size = 64;
+  const r = 30,
+    size = 72;
   const circ = 2 * Math.PI * r;
   const dash = (score / 100) * circ;
   const color = score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={32} cy={32} r={r} fill="none" stroke="#e5e7eb" strokeWidth="5" />
-      <circle cx={32} cy={32} r={r} fill="none" stroke={color} strokeWidth="5"
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-        transform="rotate(-90 32 32)"
-        style={{ transition: "stroke-dasharray 0.5s ease" }}
+      <circle
+        cx={36}
+        cy={36}
+        r={r}
+        fill="none"
+        stroke="#e5e7eb"
+        strokeWidth="6"
       />
-      <text x="50%" y="53%" dominantBaseline="middle" textAnchor="middle"
-        fontSize="14" fontWeight="600" fill={color}>{score}</text>
+      <circle
+        cx={36}
+        cy={36}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="6"
+        strokeDasharray={`${dash} ${circ}`}
+        strokeLinecap="round"
+        transform="rotate(-90 36 36)"
+        style={{ transition: "stroke-dasharray 0.6s ease" }}
+      />
+      <text
+        x="50%"
+        y="53%"
+        dominantBaseline="middle"
+        textAnchor="middle"
+        fontSize="16"
+        fontWeight="700"
+        fill={color}
+      >
+        {score}
+      </text>
     </svg>
   );
 };
 
-/**
- * SpeechTherapy
- *
- * Props:
- *   stepText     — current task step string  e.g. "Pick up the cup"
- *   stepIndex    — 0-based step number
- *   taskId       — MongoDB task _id
- *   enrollmentId — student's enrollment ID
- *   onPointsEarned(pts) — callback when speech earns gamification points
- */
 const SpeechTherapy = ({
-  stepText    = "",
-  stepIndex   = 0,
-  taskId      = null,
+  stepText = "",
+  stepIndex = 0,
+  taskId = null,
   enrollmentId = null,
   onPointsEarned = () => {},
 }) => {
-  const [isOpen,    setIsOpen]    = useState(false);
-  const [result,    setResult]    = useState(null);
+  // OPEN BY DEFAULT — fix #2
+  const [isOpen, setIsOpen] = useState(true);
+  const [result, setResult] = useState(null);
   const [bestScore, setBestScore] = useState(0);
-  const [attempts,  setAttempts]  = useState(0);
-  const [saving,    setSaving]    = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [saving, setSaving] = useState(false);
 
-  const { transcript, isListening, isSupported,
-          startListening, stopListening, resetTranscript } = useSpeechRecognition();
+  const {
+    transcript,
+    isListening,
+    isSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition();
 
-  // Score when transcript arrives
   useEffect(() => {
     if (!transcript || isListening || !stepText) return;
     const r = scorePronunciation(transcript, stepText);
@@ -60,23 +90,27 @@ const SpeechTherapy = ({
     setAttempts((a) => a + 1);
     if (r.score > bestScore) setBestScore(r.score);
 
-    // Save to backend + award points
     if (enrollmentId && taskId) {
       setSaving(true);
-      axios.post(`${BASE_URL}/api/speech/log`, {
-        enrollmentId, taskId, stepIndex,
-        stepText, spokenText: transcript,
-        score: r.score,
-        matchedWords: r.matchedWords,
-        missedWords:  r.missedWords,
-      })
-        .then((res) => {
-          if (res.data.pointsAwarded > 0) onPointsEarned(res.data.pointsAwarded);
+      axios
+        .post(`${BASE_URL}/api/speech/log`, {
+          enrollmentId,
+          taskId,
+          stepIndex,
+          stepText,
+          spokenText: transcript,
+          score: r.score,
+          matchedWords: r.matchedWords,
+          missedWords: r.missedWords,
         })
-        .catch(() => {}) // silent fail — don't break student experience
+        .then((res) => {
+          if (res.data.pointsAwarded > 0)
+            onPointsEarned(res.data.pointsAwarded);
+        })
+        .catch(() => {})
         .finally(() => setSaving(false));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, isListening]);
 
   // Reset when step changes
@@ -85,103 +119,156 @@ const SpeechTherapy = ({
     setAttempts(0);
     setBestScore(0);
     resetTranscript();
-  }, [stepText, resetTranscript]);
+    stopListening();
+  }, [stepText, resetTranscript, stopListening]);
 
   if (!isSupported) return null;
 
-  const handleSpeak  = () => { if (isListening) stopListening(); else { resetTranscript(); setResult(null); startListening(); } };
-  const handleHear   = () => speakText(stepText);
-  const handleReset  = () => { stopListening(); resetTranscript(); setResult(null); };
+  const handleSpeak = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      resetTranscript();
+      setResult(null);
+      startListening();
+    }
+  };
 
   return (
-    <div className="fixed bottom-32 right-4 z-40 w-72 rounded-2xl shadow-xl border-2 border-blue-300 bg-white overflow-hidden">
-
-      {/* Header */}
+    <div className="w-full rounded-3xl border-4 border-blue-300 bg-white overflow-hidden shadow-lg mt-4">
+      {/* Header — tappable to collapse/expand */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-blue-600 text-white"
+        className="w-full flex items-center justify-between px-5 py-4 bg-blue-600 text-white"
       >
-        <div className="flex items-center gap-2">
-          <Mic size={16} />
-          <span className="text-sm font-bold">Speech Practice</span>
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🎤</span>
+          <div className="text-left">
+            <p className="text-xl font-extrabold leading-none">
+              Speech Practice
+            </p>
+            <p className="text-sm text-blue-200 mt-0.5">
+              Say the step out loud!
+            </p>
+          </div>
           {bestScore > 0 && (
-            <span className="bg-white/25 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+            <span className="bg-white/25 text-white text-sm px-3 py-1 rounded-full font-bold ml-2">
               Best: {bestScore}%
             </span>
           )}
         </div>
-        {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        <span className="text-2xl">{isOpen ? "▲" : "▼"}</span>
       </button>
 
       {isOpen && (
-        <div className="p-4 space-y-3">
-
-          {/* Step text */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-            <p className="text-xs text-blue-500 font-semibold mb-1">Say this out loud:</p>
-            <p className="text-sm font-bold text-blue-900 leading-snug">{stepText || "No step loaded"}</p>
+        <div className="p-5 space-y-4">
+          {/* Current step display */}
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 text-center">
+            <p className="text-sm text-blue-500 font-bold mb-1 uppercase tracking-wide">
+              Say this:
+            </p>
+            <p className="text-2xl font-extrabold text-blue-900 leading-snug">
+              {stepText || "No step loaded"}
+            </p>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-2">
-            <button onClick={handleHear}
-              className="flex-1 flex items-center justify-center gap-1 bg-purple-100 text-purple-700 hover:bg-purple-200 text-sm font-bold py-3 rounded-xl transition">
-              <Volume2 size={15} /> Hear It
+          {/* Main buttons — large tap targets */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Hear it */}
+            <button
+              onClick={() => speakText(stepText)}
+              className="flex flex-col items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 text-white py-5 rounded-2xl font-bold text-lg transition shadow"
+            >
+              <Volume2 size={28} />
+              <span>Hear It</span>
             </button>
-            <button onClick={handleSpeak}
-              className={`flex-1 flex items-center justify-center gap-1 text-sm font-bold py-3 rounded-xl transition ${
+
+            {/* Speak */}
+            <button
+              onClick={handleSpeak}
+              className={`flex flex-col items-center justify-center gap-2 py-5 rounded-2xl font-bold text-lg transition shadow ${
                 isListening
                   ? "bg-red-500 text-white animate-pulse"
-                  : "bg-green-500 text-white hover:bg-green-600"
-              }`}>
-              {isListening ? <><MicOff size={15} /> Stop</> : <><Mic size={15} /> Speak</>}
+                  : "bg-green-500 hover:bg-green-600 text-white"
+              }`}
+            >
+              {isListening ? (
+                <>
+                  <MicOff size={28} />
+                  <span>Stop</span>
+                </>
+              ) : (
+                <>
+                  <Mic size={28} />
+                  <span>Speak</span>
+                </>
+              )}
             </button>
           </div>
 
-          {/* Listening pulse */}
+          {/* Listening indicator */}
           {isListening && (
-            <div className="flex items-center justify-center gap-2 text-red-500 text-sm font-semibold">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
-              Listening…
+            <div className="flex items-center justify-center gap-3 text-red-500 text-lg font-bold py-2">
+              <span className="w-4 h-4 rounded-full bg-red-500 animate-ping inline-block" />
+              Listening… say the step!
             </div>
           )}
 
           {/* What you said */}
           {transcript && !isListening && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2.5">
-              <p className="text-xs text-gray-400 mb-0.5">You said:</p>
-              <p className="text-sm text-gray-700 italic">"{transcript}"</p>
+            <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-3 text-center">
+              <p className="text-sm text-gray-400 font-semibold mb-1">
+                You said:
+              </p>
+              <p className="text-lg text-gray-700 font-bold italic">
+                "{transcript}"
+              </p>
             </div>
           )}
 
           {/* Score result */}
           {result && (
-            <div className={`rounded-xl p-3 flex items-center gap-3 border ${
-              result.score >= 80 ? "bg-green-50 border-green-200"
-                : result.score >= 50 ? "bg-yellow-50 border-yellow-200"
-                : "bg-red-50 border-red-200"
-            }`}>
+            <div
+              className={`rounded-2xl p-4 flex items-center gap-4 border-2 ${
+                result.score >= 80
+                  ? "bg-green-50 border-green-300"
+                  : result.score >= 50
+                    ? "bg-yellow-50 border-yellow-300"
+                    : "bg-red-50 border-red-300"
+              }`}
+            >
               <ScoreRing score={result.score} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800 leading-snug">{result.feedback}</p>
+              <div className="flex-1">
+                <p className="text-xl font-extrabold text-gray-800 leading-snug">
+                  {result.feedback}
+                </p>
                 {result.missedWords.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Try: <span className="text-red-600 font-semibold">{result.missedWords.slice(0, 4).join(", ")}</span>
+                  <p className="text-base text-gray-600 mt-1">
+                    Try:{" "}
+                    <span className="text-red-600 font-bold">
+                      {result.missedWords.slice(0, 3).join(", ")}
+                    </span>
                   </p>
                 )}
-                {saving && <p className="text-xs text-blue-400 mt-1">Saving…</p>}
+                {saving && (
+                  <p className="text-sm text-blue-400 mt-1">Saving…</p>
+                )}
               </div>
             </div>
           )}
 
-          {/* Attempt count + reset */}
+          {/* Try again */}
           {attempts > 0 && (
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>Attempt {attempts}</span>
-              <button onClick={handleReset} className="flex items-center gap-1 text-blue-500 hover:text-blue-700">
-                <RotateCcw size={12} /> Try again
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                stopListening();
+                resetTranscript();
+                setResult(null);
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-2xl text-lg transition"
+            >
+              <RotateCcw size={20} /> Try Again
+            </button>
           )}
         </div>
       )}
