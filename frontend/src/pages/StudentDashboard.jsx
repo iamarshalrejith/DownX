@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../features/auth/authSlice";
@@ -8,6 +8,7 @@ import {
   markTaskComplete,
   unmarkTaskComplete,
   verifyObjectForTask,
+  startTask,
 } from "../features/task/taskSlice";
 import GestureDetector  from "../components/gesture/GestureDetector";
 import ObjectDetector   from "../components/object/ObjectDetector";
@@ -131,6 +132,19 @@ export default function StudentDashboard() {
   };
 
   const activeTasks = tasks.filter((t) => !t.isCompletedByMe);
+
+  // Adaptive Learning (Days 70-75): tell the backend when the student
+  // opens the current active task, so completeTask can measure
+  // time-to-completion. Fires once per task per session.
+  const startedTaskIds = useRef(new Set());
+  useEffect(() => {
+    if (!token || !activeTasks.length) return;
+    const idx = Math.min(taskIdx, activeTasks.length - 1);
+    const currentTaskId = activeTasks[idx]?._id;
+    if (!currentTaskId || startedTaskIds.current.has(currentTaskId)) return;
+    startedTaskIds.current.add(currentTaskId);
+    dispatch(startTask({ id: currentTaskId, token }));
+  }, [taskIdx, activeTasks, token, dispatch]);
 
   const handleObjVerified = useCallback((labels) => {
     const tid = activeTasks[taskIdx]?._id;

@@ -1,5 +1,66 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────
+   DownX Design Tokens
+   Built for accessibility: high legibility type, calm palette, one
+   consistent icon motif (the "ring badge") used everywhere instead
+   of emoji. See /docs for the full rationale.
+   ───────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: #f6f4ef;
+  --color-surface: #ffffff;
+
+  --color-ink: #262521;
+  --color-ink-soft: #6b6863;
+
+  --color-brand: #2f6b66;
+  --color-brand-dark: #1f4b47;
+  --color-brand-light: #e4efee;
+
+  --color-accent: #d97748;
+  --color-accent-dark: #b85c34;
+  --color-accent-light: #fbeae1;
+
+  --color-success: #4c8c5b;
+  --color-success-light: #e7f2e9;
+
+  --color-warn: #c9932f;
+  --color-warn-light: #f8eeda;
+
+  --color-danger: #c2503f;
+  --color-danger-light: #f7e6e3;
+
+  --color-border: #e6e2d8;
+}
+
+html {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+}
+
+body {
+  background: var(--color-bg);
+}
+
+/* Visible keyboard focus everywhere — non-negotiable for accessibility */
+:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @keyframes rise {
   0% {
     opacity: 0;
@@ -19,4 +80,3 @@
   display: inline-block;
   animation: rise 4s ease-in-out infinite;
 }
-

@@ -1,46 +1,25 @@
 /**
  * StudentLoginPage.jsx
  *
- * DS-FRIENDLY REDESIGN:
- * 1. PIN emoji tiles are now huge (120×120px) with big tap targets
- * 2. Warm sunny background instead of cold indigo
- * 3. Text sizes bumped significantly throughout
- * 4. Face login and PIN login buttons are very large
- * 5. Clear visual feedback at every step
- * 6. Simpler, warmer layout
+ * DownX design system applied:
+ * - Atkinson Hyperlegible, calm warm-neutral palette (no saturated
+ *   "kids app" colors)
+ * - PIN tiles use the shared ring-badge icon system instead of raw
+ *   emoji — see utils/visualPinDisplay.js. Stored PIN values are
+ *   unchanged, so this is a display-only change.
+ * - Larger, unambiguous touch targets; clear step-by-step language
  */
 
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { studentLogin, reset } from "../features/student/studentSlice";
 import { useNavigate } from "react-router-dom";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowLeft, FiHelpCircle, FiUser } from "react-icons/fi";
 import Confetti from "react-confetti";
 import toast from "react-hot-toast";
 import LoadingDots from "../components/Loadingdots";
 import axios from "axios";
-
-const VISUAL_PINS = ["🌟", "🔥", "💧", "🍀"];
-
-// Friendly warm palette per slot
-const SLOT_STYLES = [
-  {
-    active: "bg-yellow-300 border-yellow-500 shadow-yellow-200",
-    inactive: "bg-yellow-100 border-yellow-300",
-  },
-  {
-    active: "bg-orange-300 border-orange-500 shadow-orange-200",
-    inactive: "bg-orange-100 border-orange-300",
-  },
-  {
-    active: "bg-pink-300   border-pink-500   shadow-pink-200",
-    inactive: "bg-pink-100   border-pink-300",
-  },
-  {
-    active: "bg-green-300  border-green-500  shadow-green-200",
-    inactive: "bg-green-100  border-green-300",
-  },
-];
+import { VISUAL_PIN_VALUES, VISUAL_PIN_DISPLAY } from "../utils/visualPinDisplay";
 
 const StudentLoginPage = () => {
   const dispatch = useDispatch();
@@ -65,7 +44,7 @@ const StudentLoginPage = () => {
   useEffect(() => {
     if (loginSuccess && student && !navigatedRef.current) {
       navigatedRef.current = true;
-      toast.success("Welcome! 🎉");
+      toast.success("Welcome back!");
       setShowConfetti(true);
       navigate("/student-dashboard", { replace: true });
       setTimeout(() => setShowConfetti(false), 2500);
@@ -76,7 +55,7 @@ const StudentLoginPage = () => {
   useEffect(() => {
     if (isError && !resetCalledRef.current) {
       resetCalledRef.current = true;
-      toast.error(message || "Login failed. Try again!");
+      toast.error(message || "That didn't work. Please try again.");
       setTimeout(() => {
         dispatch(reset());
         resetCalledRef.current = false;
@@ -130,10 +109,10 @@ const StudentLoginPage = () => {
     setVisualPin((prev) => {
       const cur = prev[idx];
       const nextIndex = cur
-        ? (VISUAL_PINS.indexOf(cur) + 1) % VISUAL_PINS.length
+        ? (VISUAL_PIN_VALUES.indexOf(cur) + 1) % VISUAL_PIN_VALUES.length
         : 0;
       const next = [...prev];
-      next[idx] = VISUAL_PINS[nextIndex];
+      next[idx] = VISUAL_PIN_VALUES[nextIndex];
       return next;
     });
   };
@@ -141,7 +120,7 @@ const StudentLoginPage = () => {
   const handleSubmit = () => {
     if (checkingStudent) return;
     if (!enrollmentId || visualPin.includes("")) {
-      toast.error("Please enter your ID and tap all 4 pictures!");
+      toast.error("Enter your ID and choose all 4 pictures first.");
       return;
     }
     navigatedRef.current = false;
@@ -152,13 +131,14 @@ const StudentLoginPage = () => {
   const allPinFilled = !visualPin.includes("");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-yellow-100 via-orange-50 to-white flex flex-col items-center justify-start pt-10 pb-16 px-5 relative">
+    <div className="min-h-screen bg-bg flex flex-col items-center justify-start pt-10 pb-16 px-5 relative">
       {/* Back button */}
       <button
         onClick={() => navigate("/")}
-        className="absolute top-5 left-5 w-14 h-14 flex items-center justify-center rounded-2xl bg-white shadow-md hover:bg-gray-50 transition"
+        aria-label="Go back"
+        className="absolute top-5 left-5 w-12 h-12 flex items-center justify-center rounded-full bg-surface border-2 border-border hover:bg-brand-light transition-colors focus-visible:outline focus-visible:outline-3"
       >
-        <FiArrowLeft className="text-2xl text-gray-600" />
+        <FiArrowLeft size={22} className="text-ink" />
       </button>
 
       {showConfetti && (
@@ -171,27 +151,35 @@ const StudentLoginPage = () => {
 
       {/* Welcome heading */}
       <div className="text-center mb-8 mt-6">
-        <div className="text-6xl mb-3">👋</div>
-        <h1 className="text-4xl font-extrabold text-orange-700">
-          Hello! Welcome Back
-        </h1>
-        <p className="text-xl text-gray-500 mt-2">Type your ID to start</p>
+        <div
+          className="mx-auto mb-4 w-14 h-14 rounded-full bg-surface flex items-center justify-center"
+          style={{ boxShadow: "0 0 0 3px var(--color-brand)" }}
+          aria-hidden="true"
+        >
+          <FiUser size={24} className="text-brand" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-ink">Welcome back</h1>
+        <p className="text-lg text-ink-soft mt-2">Type your ID to start</p>
       </div>
 
       {/* Enrollment ID input */}
+      <label htmlFor="enrollmentId" className="sr-only">
+        Student ID
+      </label>
       <input
+        id="enrollmentId"
         type="text"
         placeholder="Your ID (e.g. DX-20260001)"
         value={enrollmentId}
         onChange={(e) => setEnrollmentId(e.target.value.toUpperCase())}
-        className="w-full max-w-sm p-5 text-2xl text-center rounded-3xl border-4 border-orange-300 bg-white shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300 placeholder:text-gray-300 mb-6 font-bold tracking-widest"
+        className="w-full max-w-sm p-5 text-xl text-center rounded-2xl border-2 border-border bg-surface shadow-sm focus:outline-none focus-visible:outline focus-visible:outline-3 placeholder:text-ink-soft/60 mb-6 font-bold tracking-widest"
       />
 
       {/* Checking indicator */}
       {checkingStudent && (
         <div className="flex flex-col items-center gap-2 mb-6">
           <LoadingDots />
-          <p className="text-xl text-gray-500 font-semibold">
+          <p className="text-lg text-ink-soft font-semibold">
             Looking for your account…
           </p>
         </div>
@@ -206,15 +194,15 @@ const StudentLoginPage = () => {
             onClick={() =>
               navigate(`/student-face-login?enrollmentId=${enrollmentId}`)
             }
-            className="w-full py-6 bg-indigo-600 hover:bg-indigo-700 text-white text-2xl font-extrabold rounded-3xl shadow-lg flex items-center justify-center gap-3 transition"
+            className="w-full py-6 bg-brand hover:bg-brand-dark text-white text-xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3"
           >
-            😊 Login with My Face
+            Log in with my face
           </button>
           <button
             onClick={() => setLoginMode("pin")}
-            className="w-full py-6 bg-orange-400 hover:bg-orange-500 text-white text-2xl font-extrabold rounded-3xl shadow-lg flex items-center justify-center gap-3 transition"
+            className="w-full py-6 bg-surface hover:bg-accent-light text-ink border-2 border-border text-xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3"
           >
-            🌟 Login with Pictures
+            Log in with pictures
           </button>
         </div>
       )}
@@ -223,67 +211,79 @@ const StudentLoginPage = () => {
       {!checkingStudent && faceEnabled === false && !loginMode && (
         <button
           onClick={() => setLoginMode("pin")}
-          className="w-full max-w-sm py-7 bg-orange-400 hover:bg-orange-500 text-white text-2xl font-extrabold rounded-3xl shadow-xl flex items-center justify-center gap-3 transition"
+          className="w-full max-w-sm py-7 bg-brand hover:bg-brand-dark text-white text-xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3"
         >
-          🌟 Login with Pictures
+          Log in with pictures
         </button>
       )}
 
       {/* ── PIN grid ──────────────────────────────────────────────── */}
       {loginMode === "pin" && (
         <div className="w-full max-w-sm flex flex-col items-center gap-6">
-          <p className="text-2xl font-extrabold text-gray-700 text-center">
-            Tap each picture to choose your secret
+          <p className="text-xl font-bold text-ink text-center">
+            Tap each picture to choose your secret code
           </p>
 
-          {/* 4 large emoji tiles */}
+          {/* 4 ring-badge tiles */}
           <div className="grid grid-cols-4 gap-3 w-full">
-            {visualPin.map((val, idx) => (
-              <button
-                key={idx}
-                onClick={() => handlePinTap(idx)}
-                className={`h-24 text-5xl rounded-3xl border-4 flex items-center justify-center shadow-lg transition-all duration-150 active:scale-95 ${
-                  val
-                    ? `${SLOT_STYLES[idx].active} shadow-xl`
-                    : `${SLOT_STYLES[idx].inactive}`
-                }`}
-              >
-                {val || "❔"}
-              </button>
-            ))}
+            {visualPin.map((val, idx) => {
+              const display = val ? VISUAL_PIN_DISPLAY[val] : null;
+              const Icon = display?.Icon || FiHelpCircle;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handlePinTap(idx)}
+                  aria-label={
+                    display ? `Slot ${idx + 1}: ${display.label}` : `Slot ${idx + 1}: empty`
+                  }
+                  className={`h-20 rounded-2xl border-2 flex items-center justify-center shadow-sm transition-all active:scale-95 focus-visible:outline focus-visible:outline-3 ${
+                    display
+                      ? `${display.bg} border-transparent ring-2 ${display.ring}`
+                      : "bg-surface border-border"
+                  }`}
+                >
+                  <Icon
+                    size={30}
+                    className={display ? display.icon : "text-ink-soft"}
+                  />
+                </button>
+              );
+            })}
           </div>
 
-          {/* Current pin display */}
-          <p className="text-xl text-gray-500 font-bold">
-            {visualPin.map((v) => v || "❔").join("  →  ")}
+          {/* Current pin labels, for confirmation */}
+          <p className="text-base text-ink-soft font-semibold text-center">
+            {visualPin
+              .map((v) => (v ? VISUAL_PIN_DISPLAY[v].label : "empty"))
+              .join("  •  ")}
           </p>
 
           {/* GO button */}
           <button
             onClick={handleSubmit}
             disabled={isLoading || !allPinFilled}
-            className={`w-full py-7 text-3xl font-extrabold rounded-3xl shadow-xl flex items-center justify-center gap-3 transition-all ${
+            className={`w-full py-6 text-2xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3 ${
               allPinFilled && !isLoading
-                ? "bg-green-500 hover:bg-green-600 text-white hover:scale-[1.02]"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                ? "bg-success hover:bg-success/90 text-white"
+                : "bg-border text-ink-soft cursor-not-allowed"
             }`}
           >
-            {isLoading ? <LoadingDots /> : "Let's Go! 🚀"}
+            {isLoading ? <LoadingDots /> : "Continue"}
           </button>
 
           {/* Back to options */}
           <button
             onClick={() => setLoginMode(null)}
-            className="text-xl text-gray-400 hover:text-gray-600 underline transition"
+            className="text-lg text-ink-soft hover:text-ink underline transition-colors focus-visible:outline focus-visible:outline-3"
           >
-            ← Other login options
+            Other login options
           </button>
         </div>
       )}
 
       {/* Helper text */}
       {!loginMode && !checkingStudent && (
-        <p className="mt-8 text-xl text-gray-400 text-center max-w-sm">
+        <p className="mt-8 text-lg text-ink-soft text-center max-w-sm">
           Enter your ID above to see your login options
         </p>
       )}

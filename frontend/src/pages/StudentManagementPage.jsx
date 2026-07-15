@@ -7,17 +7,14 @@ import {
 } from "../features/student/studentSlice";
 import Loadingdots from "../components/Loadingdots";
 import { toast } from "react-hot-toast";
-
-// Define the available visual PIN icons
-const VISUAL_PINS = ["🌟", "🔥", "💧", "🍀"];
-const PIN_COLORS = ["bg-indigo-300", "bg-indigo-400", "bg-indigo-500", "bg-indigo-600"];
+import { VISUAL_PIN_VALUES, VISUAL_PIN_DISPLAY } from "../utils/visualPinDisplay";
 
 // Helper to generate a random visual PIN
 const generateVisualPin = (length = 4) => {
   const pin = [];
   for (let i = 0; i < length; i++) {
-    const randIndex = Math.floor(Math.random() * VISUAL_PINS.length);
-    pin.push(VISUAL_PINS[randIndex]);
+    const randIndex = Math.floor(Math.random() * VISUAL_PIN_VALUES.length);
+    pin.push(VISUAL_PIN_VALUES[randIndex]);
   }
   return pin;
 };
@@ -103,23 +100,35 @@ const StudentManagementPage = () => {
 
   // Render PIN buttons
   const renderPinButtons = () =>
-    visualPin.map((val, idx) => (
-      <button
-        key={idx}
-        type="button"
-        onClick={() =>
-          setVisualPin((prev) => {
-            const nextIndex = (VISUAL_PINS.indexOf(prev[idx]) + 1) % VISUAL_PINS.length;
-            const newPin = [...prev];
-            newPin[idx] = VISUAL_PINS[nextIndex];
-            return newPin;
-          })
-        }
-        className={`w-16 h-16 text-3xl rounded-lg flex items-center justify-center shadow-md transition transform hover:scale-110 ${PIN_COLORS[idx]}`}
-      >
-        {val || "❔"}
-      </button>
-    ));
+    visualPin.map((val, idx) => {
+      const display = val ? VISUAL_PIN_DISPLAY[val] : null;
+      const Icon = display?.Icon;
+      return (
+        <button
+          key={idx}
+          type="button"
+          onClick={() =>
+            setVisualPin((prev) => {
+              const nextIndex =
+                (VISUAL_PIN_VALUES.indexOf(prev[idx]) + 1) % VISUAL_PIN_VALUES.length;
+              const newPin = [...prev];
+              newPin[idx] = VISUAL_PIN_VALUES[nextIndex];
+              return newPin;
+            })
+          }
+          aria-label={display ? `Slot ${idx + 1}: ${display.label}` : `Slot ${idx + 1}: empty`}
+          className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-sm transition-transform hover:scale-105 ring-2 ${
+            display ? `${display.bg} ${display.ring}` : "bg-bg ring-border"
+          }`}
+        >
+          {Icon ? (
+            <Icon size={24} className={display.icon} />
+          ) : (
+            <span className="text-ink-soft text-sm font-bold">?</span>
+          )}
+        </button>
+      );
+    });
 
   return (
     <div className="max-w-3xl mx-auto p-6">
