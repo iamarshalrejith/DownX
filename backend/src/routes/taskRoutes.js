@@ -7,6 +7,7 @@ import {
   deleteTask,
   completeTask,
   uncompleteTask,
+  startTask,
 } from "../controller/taskController.js";
 import {
   verifyObjectForTask,
@@ -31,6 +32,9 @@ router.put("/:id", protect, updateTask);
 
 // Delete a task
 router.delete("/:id", protect, deleteTask);
+
+// Student begins a task (starts the completion-time clock)
+router.put("/start/:id", protect, startTask);
 
 // Mark task as completed
 router.put("/complete/:id", protect, completeTask);

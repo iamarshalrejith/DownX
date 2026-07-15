@@ -49,6 +49,15 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Adaptive Learning (Days 70-75): 1 = most simplified, 5 = least simplified.
+    // Adjusted automatically after each task completion based on
+    // time-to-completion, help-request gestures, and verification failures.
+    difficultyLevel: {
+      type: Number,
+      default: 3,
+      min: 1,
+      max: 5,
+    },
   },
   {
     timestamps: true,

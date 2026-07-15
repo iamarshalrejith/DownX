@@ -5,17 +5,34 @@ const API_URL  = `${BASE_URL}/api/tasks/`;
 const AI_URL   = `${BASE_URL}/api/ai/simplify`;
 
 //  AI Simplification 
-const simplifyInstruction = async (inputText, token) => {
+// studentId (optional) lets the backend pull that student's live
+// adaptive difficultyLevel so the simplified steps match their level.
+const simplifyInstruction = async (inputText, token, studentId = null) => {
   try {
     const response = await axios.post(
       AI_URL,
-      { inputText },
+      { inputText, studentId },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return response.data;
   } catch (error) {
     return Promise.reject(
       error.response?.data || { message: "Failed to simplify instructions" }
+    );
+  }
+};
+
+// Adaptive Learning (Days 70-75): student begins a task — starts the
+// completion-time clock used to adjust difficultyLevel afterwards.
+const startTask = async (id, token) => {
+  try {
+    const response = await axios.put(`${API_URL}start/${id}`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    return Promise.reject(
+      error.response?.data || { message: "Failed to start task" }
     );
   }
 };
@@ -120,6 +137,7 @@ const taskService = {
   markTaskComplete,
   unmarkTaskComplete,
   verifyObjectForTask,
+  startTask,
 };
 
 export default taskService;

@@ -59,6 +59,22 @@ const taskSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Adaptive Learning (Days 70-75): tracks when a student started this
+    // task so completeTask can measure time-to-completion. One entry per
+    // student currently working on it; removed once they complete/uncomplete.
+    inProgress: [
+      {
+        studentId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Student",
+          required: true,
+        },
+        startedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     objectVerification: {
       enabled: {
         type: Boolean,

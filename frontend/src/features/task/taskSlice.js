@@ -31,6 +31,21 @@ export const unmarkTaskComplete = createAsyncThunk(
   }
 );
 
+// Adaptive Learning (Days 70-75): mark task as started (for time tracking)
+export const startTask = createAsyncThunk(
+  "task/startTask",
+  async ({ id, token }, { rejectWithValue }) => {
+    try {
+      const response = await taskService.startTask(id, token);
+      return { id, message: response.message };
+    } catch (err) {
+      // Non-fatal — if this fails the student can still do the task,
+      // adaptive difficulty just won't have a time signal for this attempt.
+      return rejectWithValue(err.message || "Failed to start task");
+    }
+  }
+);
+
 // Create simplified task (AI + DB) 
 export const createSimplifiedTask = createAsyncThunk(
   "task/createSimplifiedTask",
@@ -38,7 +53,8 @@ export const createSimplifiedTask = createAsyncThunk(
     try {
       const aiResponse = await taskService.simplifyInstruction(
         taskData.originalInstructions,
-        token
+        token,
+        taskData.assignedTo || null
       );
 
       if (!aiResponse?.steps || !Array.isArray(aiResponse.steps)) {
@@ -141,6 +157,12 @@ const taskSlice = createSlice({
         if (t) { t.isCompleted = false; t.isCompletedByMe = false; }
       })
       .addCase(unmarkTaskComplete.rejected, (s, a) => { s.loading = false; s.error = a.payload; })
+
+      // Start task (adaptive learning time tracking) — fire-and-forget,
+      // doesn't touch loading state so it never blocks the step UI.
+      .addCase(startTask.rejected, (s, a) => {
+        console.error("Failed to record task start:", a.payload);
+      })
 
       // Verify objects
       .addCase(verifyObjectForTask.fulfilled, (s, a) => {

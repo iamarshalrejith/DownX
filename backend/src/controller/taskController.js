@@ -1,4 +1,9 @@
 import Task from "../models/Task.js";
+import Student from "../models/Student.js";
+import GestureEvent from "../models/GestureEvent.js";
+import ObjectVerificationLog from "../models/ObjectVerificationLog.js";
+import AdaptiveDifficultyLog from "../models/AdaptiveDifficultyLog.js";
+import { computeDifficultyAdjustment } from "../utils/adaptiveDifficulty.js";
 
 export const getAllTasks = async (req, res) => {
   try {
@@ -224,6 +229,44 @@ export const deleteTask = async (req, res) => {
   }
 };
 
+// Student opens/begins a task — records the start time used later to
+// compute time-to-completion for adaptive difficulty.
+export const startTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id);
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    if (req.user.role !== "student") {
+      return res
+        .status(403)
+        .json({ message: "Only students can start a task" });
+    }
+
+    const isAssigned =
+      task.assignedToAll ||
+      (task.assignedTo && task.assignedTo.equals(req.user._id));
+
+    if (!isAssigned) {
+      return res
+        .status(403)
+        .json({ message: "You are not allowed to start this task" });
+    }
+
+    // Remove any stale entry for this student, then add a fresh one.
+    task.inProgress = task.inProgress.filter(
+      (p) => p.studentId.toString() !== req.user._id.toString()
+    );
+    task.inProgress.push({ studentId: req.user._id, startedAt: new Date() });
+
+    await task.save();
+    return res.status(200).json({ message: "Task started" });
+  } catch (error) {
+    console.error("Error in startTask controller", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
 export const completeTask = async (req, res) => {
   try {
     const { id } = req.params;
@@ -271,9 +314,81 @@ export const completeTask = async (req, res) => {
 
     const updatedTask = await task.save();
 
+    // ── Adaptive Learning (Days 70-75) ─────────────────────────────────────
+    // Best-effort: never let adaptive scoring block the completion response.
+    let difficultyUpdate = null;
+    try {
+      const startEntry = task.inProgress.find(
+        (p) => p.studentId.toString() === req.user._id.toString()
+      );
+      const timeTakenMs = startEntry
+        ? Date.now() - new Date(startEntry.startedAt).getTime()
+        : 0;
+
+      const [helpRequests, verificationFailures, student] = await Promise.all([
+        GestureEvent.countDocuments({
+          studentId: req.user._id,
+          taskId: task._id,
+          gestureType: "raised_hand",
+        }),
+        ObjectVerificationLog.countDocuments({
+          studentId: req.user._id,
+          taskId: task._id,
+          verified: false,
+        }),
+        Student.findById(req.user._id).select("difficultyLevel"),
+      ]);
+
+      if (student) {
+        const stepCount = Math.max(
+          (task.simplifiedSteps && task.simplifiedSteps.length) ||
+            (task.steps && task.steps.length) ||
+            1,
+          1
+        );
+
+        const { newLevel, reason, expectedTimeMs } =
+          computeDifficultyAdjustment(student.difficultyLevel, {
+            timeTakenMs,
+            stepCount,
+            helpRequests,
+            verificationFailures,
+          });
+
+        if (newLevel !== student.difficultyLevel) {
+          await AdaptiveDifficultyLog.create({
+            studentId: student._id,
+            taskId: task._id,
+            previousLevel: student.difficultyLevel,
+            newLevel,
+            reason,
+            signals: {
+              timeTakenMs,
+              expectedTimeMs,
+              helpRequests,
+              verificationFailures,
+            },
+          });
+
+          student.difficultyLevel = newLevel;
+          await student.save();
+          difficultyUpdate = { previousLevel: student.difficultyLevel, newLevel, reason };
+        }
+      }
+
+      // Clear the in-progress marker for this student now that it's done.
+      task.inProgress = task.inProgress.filter(
+        (p) => p.studentId.toString() !== req.user._id.toString()
+      );
+      await task.save();
+    } catch (adaptiveError) {
+      console.error("Adaptive difficulty computation failed (non-fatal):", adaptiveError);
+    }
+
     return res.status(200).json({
       message: "Task marked as completed",
       task: updatedTask,
+      difficultyUpdate, // null if no change; frontend can ignore or show a subtle indicator
     });
   } catch (error) {
     console.error("Error in completeTask controller", error);
