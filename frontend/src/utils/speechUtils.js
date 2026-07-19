@@ -31,7 +31,7 @@ const isFuzzyMatch = (spoken, expected) => {
  */
 export const scorePronunciation = (spoken, expected) => {
   if (!expected?.trim()) return { score: 0, feedback: "No text to score", matchedWords: [], missedWords: [] };
-  if (!spoken?.trim())   return { score: 0, feedback: "Nothing heard — try again! 🎤", matchedWords: [], missedWords: tokenise(expected) };
+  if (!spoken?.trim())   return { score: 0, feedback: "Nothing heard — try again", matchedWords: [], missedWords: tokenise(expected) };
 
   const spokenWords   = tokenise(spoken);
   const expectedWords = tokenise(expected);
@@ -55,10 +55,10 @@ export const scorePronunciation = (spoken, expected) => {
   const score = Math.round((matchedWords.length / expectedWords.length) * 100);
 
   let feedback;
-  if (score >= 90)      feedback = "Amazing! 🌟 Perfect pronunciation!";
-  else if (score >= 70) feedback = "Great job! 👍 Almost perfect!";
-  else if (score >= 50) feedback = `Keep going! 💪 Try: ${missedWords.slice(0, 3).join(", ")}`;
-  else                  feedback = `Try again! 🔄 Focus on: ${missedWords.slice(0, 3).join(", ")}`;
+  if (score >= 90)      feedback = "Amazing! Perfect pronunciation.";
+  else if (score >= 70) feedback = "Great job! Almost perfect.";
+  else if (score >= 50) feedback = `Keep going! Try: ${missedWords.slice(0, 3).join(", ")}`;
+  else                  feedback = `Try again. Focus on: ${missedWords.slice(0, 3).join(", ")}`;
 
   return { score, feedback, matchedWords, missedWords };
 };
