@@ -1,6 +1,37 @@
 import axios from "axios";
 
 /**
+ * In-memory cache for proxied Wikimedia images: url -> { buffer, contentType }.
+ * Capped so a long-running server doesn't grow unbounded; least-recently-
+ * added entries are evicted first. Good enough for a school-project scale
+ * app — swap for Redis/disk if this needs to survive restarts.
+ */
+const IMAGE_CACHE_MAX = 300;
+const imageCache = new Map();
+
+const cacheSet = (key, value) => {
+  if (imageCache.size >= IMAGE_CACHE_MAX) {
+    const oldestKey = imageCache.keys().next().value;
+    imageCache.delete(oldestKey);
+  }
+  imageCache.set(key, value);
+};
+
+// Only allow proxying actual Wikimedia media URLs — prevents this
+// endpoint being abused as an open SSRF proxy for arbitrary URLs.
+const isAllowedImageHost = (url) => {
+  try {
+    const { hostname, protocol } = new URL(url);
+    return (
+      protocol === "https:" &&
+      (hostname === "upload.wikimedia.org" || hostname.endsWith(".wikimedia.org"))
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
  * POST /api/picto/extract
  *
  * Gemini now returns TWO things per word:
@@ -25,14 +56,19 @@ const fetchWikiImage = async (searchTerm) => {
       {
         timeout: 5000,
         headers: {
-          "User-Agent": "DownX-Education-App/1.0 (educational tool for Down syndrome students)",
+          "User-Agent":
+            "DownX-Education-App/1.0 (https://github.com/iamarshalrejith/DownX)",
         },
       }
     );
     const img = res.data?.thumbnail?.source;
     if (img) {
       return {
-        imageUrl: img.replace(/\/\d+px-/, "/400px-"),
+        // Use Wikipedia's own thumbnail URL as-is. Force-upscaling to a
+        // fixed width (e.g. replacing with /400px-) can request a size
+        // larger than the source image supports, which Wikimedia's
+        // thumbnail renderer rejects with 400 Bad Request.
+        imageUrl: img,
         wikiTitle: res.data.title || searchTerm,
       };
     }
@@ -65,6 +101,63 @@ const fetchImageWithFallbacks = async (label, wikiSearch) => {
   return { label, wikiSearch, imageUrl: null, wikiTitle: label };
 };
 
+// ── GET /api/picto/image?url=<upload.wikimedia.org URL> ───────────────────
+// Fetches the real image server-side (Node has no browser extensions,
+// referrer quirks, or client-side network filters to worry about) and
+// streams it back from our own domain, with a small in-memory cache so
+// repeat requests for the same word (e.g. "knife" across many tasks)
+// don't hit Wikimedia again.
+export const proxyPictoImage = async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || !isAllowedImageHost(url)) {
+      return res.status(400).json({ success: false, message: "Invalid or disallowed image URL" });
+    }
+
+    const cached = imageCache.get(url);
+    if (cached) {
+      res.set("Content-Type", cached.contentType);
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.send(cached.buffer);
+    }
+
+    const wikiRes = await axios.get(url, {
+      responseType: "arraybuffer",
+      timeout: 8000,
+      headers: {
+        "User-Agent":
+          "DownX-Education-App/1.0 (https://github.com/iamarshalrejith/DownX) node-axios",
+        Accept: "image/*",
+      },
+    });
+
+    const buffer = Buffer.from(wikiRes.data);
+    const contentType = wikiRes.headers["content-type"] || "image/jpeg";
+    cacheSet(url, { buffer, contentType });
+
+    res.set("Content-Type", contentType);
+    res.set("Cache-Control", "public, max-age=86400");
+    return res.send(buffer);
+  } catch (error) {
+    console.error("proxyPictoImage ERROR:", error.message);
+    console.error("  Requested URL:", req.query.url);
+    if (error.response) {
+      console.error("  Upstream status:", error.response.status);
+      console.error("  Upstream headers:", JSON.stringify(error.response.headers, null, 2));
+      // Body is often binary/arraybuffer here — try to decode as text for the error page
+      try {
+        const bodyText = Buffer.isBuffer(error.response.data)
+          ? error.response.data.toString("utf-8").slice(0, 500)
+          : JSON.stringify(error.response.data).slice(0, 500);
+        console.error("  Upstream body:", bodyText);
+      } catch {
+        console.error("  Upstream body: <could not decode>");
+      }
+    }
+    return res.status(502).json({ success: false, message: "Failed to fetch image" });
+  }
+};
+
 // ── Main controller ───────────────────────────────────────────────────────
 export const extractPictoWords = async (req, res) => {
   try {
@@ -77,11 +170,11 @@ export const extractPictoWords = async (req, res) => {
     // ── Gemini: extract words WITH context-aware Wikipedia search terms ──
     const prompt = `You are helping a Down syndrome student understand a task step visually.
 
-Read this sentence carefully and extract every concrete noun, object, food, tool, and body part.
+Read this sentence carefully and extract every concrete noun, object, food, tool, body part, animal, or single letter/number that the sentence is teaching.
 
 For each item, return TWO things:
-1. "label"      — the short display word shown to the student (1-2 words)
-2. "wikiSearch" — the exact Wikipedia article title that shows the RIGHT meaning in this context
+1. "label"      — the short display word or character shown to the student (1-2 words, or a single letter/number)
+2. "wikiSearch" — the exact Wikipedia article title that shows the RIGHT meaning in this context. For a single letter or number, leave wikiSearch the same as label — it will be shown as a big letter/number tile instead of a photo.
 
 The "wikiSearch" must be specific enough that Wikipedia shows the correct image.
 Use context clues from the full sentence to pick the right meaning.
@@ -98,6 +191,7 @@ Examples of disambiguation:
 - "bat" the animal                   → wikiSearch: "bat"
 - "orange" the fruit                 → wikiSearch: "orange (fruit)"
 - "orange" the colour                → wikiSearch: "orange (colour)"
+- "A is for Apple"                   → two items: {"label":"A","wikiSearch":"A"} AND {"label":"apple","wikiSearch":"apple (fruit)"}
 
 Sentence: "${stepText}"
 
@@ -149,24 +243,43 @@ Example output for "Gather an orange, a knife, a cutting board, a juicer, and a 
           return { label: item.trim().toLowerCase(), wikiSearch: item.trim().toLowerCase() };
         }
         return {
-          label:      String(item.label      || item.word || "").trim().toLowerCase(),
+          label:      String(item.label      || item.word || "").trim(),
           wikiSearch: String(item.wikiSearch || item.label || item.word || "").trim(),
         };
       })
-      .filter((i) => i.label.length > 1)
+      .filter((i) => i.label.length > 0)
+      .map((i) => {
+        const isLetterOrNumber = /^[A-Za-z0-9]$/.test(i.label);
+        return {
+          ...i,
+          label: isLetterOrNumber ? i.label.toUpperCase() : i.label.toLowerCase(),
+          isLetterOrNumber,
+        };
+      })
       .slice(0, 7);
 
     console.log("Items to fetch:", items.map((i) => `${i.label} → "${i.wikiSearch}"`).join(", "));
 
-    // ── Fetch Wikipedia images in parallel ────────────────────────────
+    // ── Fetch Wikipedia images in parallel (skip for letters/numbers —
+    // there's no meaningful photo for a bare "A"; the frontend renders
+    // those as a styled letter tile instead) ──────────────────────────
     const imageResults = await Promise.all(
-      items.map(({ label, wikiSearch }) => fetchImageWithFallbacks(label, wikiSearch))
+      items.map(({ label, wikiSearch, isLetterOrNumber }) =>
+        isLetterOrNumber
+          ? Promise.resolve({ label, wikiSearch, imageUrl: null, wikiTitle: label })
+          : fetchImageWithFallbacks(label, wikiSearch)
+      )
     );
 
-    const finalItems = imageResults.map(({ label, imageUrl, wikiTitle }) => ({
-      word:      label,
-      imageUrl:  imageUrl || null,
+    const finalItems = imageResults.map(({ label, imageUrl, wikiTitle }, idx) => ({
+      word: label,
+      // Route through our own backend so the browser never talks to
+      // upload.wikimedia.org directly (see proxyPictoImage above).
+      imageUrl: imageUrl
+        ? `${req.protocol}://${req.get("host")}/api/picto/image?url=${encodeURIComponent(imageUrl)}`
+        : null,
       wikiTitle: wikiTitle || label,
+      isLetterOrNumber: items[idx].isLetterOrNumber,
     }));
 
     const found = finalItems.filter((i) => i.imageUrl).length;
