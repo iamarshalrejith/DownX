@@ -11,7 +11,8 @@ const speechLogSchema = new mongoose.Schema(
     taskId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Task",
-      required: true,
+      required: false, // optional — standalone practice (not tied to a task) has none
+      default: null,
     },
     stepIndex:   { type: Number, required: true },
     stepText:    { type: String, default: "" },
