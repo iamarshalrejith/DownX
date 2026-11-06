@@ -17,6 +17,7 @@ import FaceEnrollPage from "./pages/FaceEnrollPage";
 import StudentFaceLogin from "./pages/StudentFaceLogin";
 import SettingsRouter from "./pages/settings/SettingsRouter";
 import { useSelector } from "react-redux";
+import AIMode from "./pages/AIMode";
 
 // Protected dashboard route wrapper
 const DashboardRedirect = () => {
@@ -66,6 +67,7 @@ const App = () => {
 
       {/* DEV ONLY */}
       <Route path="/dev/face-test" element={<FaceTest />} />
+      <Route path="/ai-mode" element={<AIMode />} />
     </Routes>
   );
 };
