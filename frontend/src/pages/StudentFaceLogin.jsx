@@ -188,12 +188,13 @@ const StudentFaceLogin = () => {
 
               // Update Redux
               dispatch(
-                updateUser({
-                  ...res.data.student,
-                  token: res.data.token,
-                  role: "student",
-                })
-              );
+              updateUser({
+                ...res.data.student,
+                _id: res.data.student.id || res.data.student._id,
+                token: res.data.token,
+                role: "student",
+              })
+            );
 
               // Navigate
               navigate("/student-dashboard", { replace: true });
