@@ -1,22 +1,32 @@
+
 import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
+
 import {
   getStudents,
   linkStudent,
   reset,
 } from "../features/student/studentSlice.js";
+
 import { getAllTasks } from "../features/task/taskSlice.js";
 import StudentTaskView from "../modals/StudentTaskView.jsx";
 import Loadingdots from "./Loadingdots.jsx";
 import { toast } from "react-hot-toast";
 
+import {
+  FiUsers,
+  FiBookOpen,
+  FiCheckCircle,
+  FiClock,
+  FiUserPlus,
+  FiArrowRight,
+  FiCheck,
+  FiHeart,
+  FiLink,
+  FiCalendar,
+} from "react-icons/fi";
+
 const VISUAL_PINS = ["🌟", "🔥", "💧", "🍀"];
-const PIN_COLORS = [
-  "bg-indigo-400/80 backdrop-blur-md",
-  "bg-indigo-500/80 backdrop-blur-md",
-  "bg-indigo-600/80 backdrop-blur-md",
-  "bg-indigo-700/80 backdrop-blur-md",
-];
 
 const ParentDashboardHome = () => {
   const dispatch = useDispatch();
@@ -40,20 +50,20 @@ const ParentDashboardHome = () => {
   const [enrollmentId, setEnrollmentId] = useState("");
   const [visualPin, setVisualPin] = useState(["", "", "", ""]);
 
-  // Modal state
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Error handling
+  // ERROR HANDLING
   useEffect(() => {
     if (isError && message) {
       toast.error(message);
       dispatch(reset());
     }
+
     if (taskError) toast.error(taskError);
   }, [isError, message, dispatch, taskError]);
 
-  // Fetch students initially
+  // FETCH STUDENTS AND TASKS
   useEffect(() => {
     if (user?.token) {
       dispatch(getStudents());
@@ -61,17 +71,21 @@ const ParentDashboardHome = () => {
     }
   }, [dispatch, user?.token]);
 
-  // Get task info for a specific child
+  // CHILD TASK INFORMATION
   const getChildTaskInfo = (childId) => {
     const childTasks = tasks.filter(
-      (t) => t.assignedToAll || t.assignedTo?._id === childId
+      (task) =>
+        task.assignedToAll ||
+        task.assignedTo?._id === childId
     );
 
     const completedTasks = childTasks.filter((task) => {
       if (task.assignedToAll) {
-        // Check if this child completed it
-        return task.completedBy?.some((c) => c.studentId._id === childId);
+        return task.completedBy?.some(
+          (completion) => completion.studentId?._id === childId
+        );
       }
+
       return task.isCompleted;
     });
 
@@ -83,54 +97,53 @@ const ParentDashboardHome = () => {
     };
   };
 
-  // Update linked children whenever myStudents or user.studentIds changes
+  // LINKED CHILDREN
   useEffect(() => {
     if (user?.studentIds && myStudents.length > 0) {
-      const linkedChildren = myStudents.filter((s) =>
-        user.studentIds.includes(s._id)
+      const linkedChildren = myStudents.filter((student) =>
+        user.studentIds.includes(student._id)
       );
 
-      // Attach filtered tasks with completion info for each child
-      const withTasks = linkedChildren.map((child) => {
-        const taskInfo = getChildTaskInfo(child._id);
-        return {
-          ...child,
-          ...taskInfo,
-        };
-      });
-      setChildren(withTasks);
+      const childrenWithTasks = linkedChildren.map((child) => ({
+        ...child,
+        ...getChildTaskInfo(child._id),
+      }));
+
+      setChildren(childrenWithTasks);
     } else {
       setChildren([]);
     }
   }, [user, myStudents, tasks]);
 
-  // Calculate overall statistics
-  const getOverallStats = () => {
-    const totalTasks = children.reduce((sum, c) => sum + c.total, 0);
-    const totalCompleted = children.reduce((sum, c) => sum + c.completed, 0);
-    const totalPending = children.reduce((sum, c) => sum + c.pending, 0);
+  // OVERALL STATISTICS
+  const stats = children.reduce(
+    (result, child) => ({
+      totalTasks: result.totalTasks + child.total,
+      completed: result.completed + child.completed,
+      pending: result.pending + child.pending,
+    }),
+    { totalTasks: 0, completed: 0, pending: 0 }
+  );
 
-    return { totalTasks, totalCompleted, totalPending };
-  };
-
-  const stats = getOverallStats();
-
-  // Handle visual PIN taps
+  // VISUAL PIN HANDLING
   const handlePinTap = (index) => {
-    setVisualPin((prev) => {
-      const current = prev[index];
+    setVisualPin((previous) => {
+      const current = previous[index];
+
       const nextIndex = current
         ? (VISUAL_PINS.indexOf(current) + 1) % VISUAL_PINS.length
         : 0;
-      const newSequence = [...prev];
-      newSequence[index] = VISUAL_PINS[nextIndex];
-      return newSequence;
+
+      const updated = [...previous];
+      updated[index] = VISUAL_PINS[nextIndex];
+
+      return updated;
     });
   };
 
-  // Handle linking a child
-  const handleLinkChild = async (e) => {
-    e.preventDefault();
+  // LINK CHILD
+  const handleLinkChild = async (event) => {
+    event.preventDefault();
 
     if (!enrollmentId.trim()) {
       toast.error("Please enter an enrollment ID.");
@@ -143,16 +156,25 @@ const ParentDashboardHome = () => {
     }
 
     try {
-      await dispatch(linkStudent({ enrollmentId, visualPin })).unwrap();
+      await dispatch(
+        linkStudent({ enrollmentId, visualPin })
+      ).unwrap();
+
       toast.success("Child linked successfully!");
+
       setEnrollmentId("");
       setVisualPin(["", "", "", ""]);
+
+      // Refresh linked students
+      if (user?.token) {
+        dispatch(getStudents());
+      }
     } catch (err) {
       toast.error(err?.message || "Failed to link child");
     }
   };
 
-  // Modal handlers
+  // STUDENT MODAL
   const handleChildClick = (child) => {
     setSelectedStudent(child);
     setIsModalOpen(true);
@@ -163,192 +185,342 @@ const ParentDashboardHome = () => {
     setTimeout(() => setSelectedStudent(null), 300);
   };
 
+  const statCards = [
+    {
+      label: "Total Children",
+      value: children.length,
+      description: "Linked to your account",
+      icon: FiUsers,
+      color: "brand",
+    },
+    {
+      label: "Total Tasks",
+      value: stats.totalTasks,
+      description: "Assigned learning activities",
+      icon: FiBookOpen,
+      color: "accent",
+    },
+    {
+      label: "Completed",
+      value: stats.completed,
+      description: "Successfully completed",
+      icon: FiCheckCircle,
+      color: "success",
+    },
+    {
+      label: "Pending",
+      value: stats.pending,
+      description: "Still to be completed",
+      icon: FiClock,
+      color: "warning",
+    },
+  ];
+
+  const statColors = {
+    brand: {
+      icon: "bg-[#E4EFEE] text-[#2F6B66]",
+      value: "text-[#1F4B47]",
+    },
+    accent: {
+      icon: "bg-[#FBEAE1] text-[#D97748]",
+      value: "text-[#B85C34]",
+    },
+    success: {
+      icon: "bg-[#E7F2E9] text-[#4C8C5B]",
+      value: "text-[#4C8C5B]",
+    },
+    warning: {
+      icon: "bg-[#F8EEDA] text-[#C9932F]",
+      value: "text-[#A47720]",
+    },
+  };
+
   if (isLoading || taskLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex min-h-[400px] items-center justify-center">
         <Loadingdots />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-indigo-100 p-8">
-      <div className="max-w-4xl mx-auto space-y-10">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-4xl font-extrabold text-indigo-700 tracking-tight">
-            Parent Dashboard
-          </h1>
+    <div className="space-y-8">
+
+      {/* WELCOME */}
+      <section className="space-y-2">
+        <p className="text-sm font-bold uppercase tracking-wide text-[#2F6B66]">
+          YOUR FAMILY'S LEARNING JOURNEY
+        </p>
+
+        <h2 className="text-2xl font-bold tracking-tight text-[#1F4B47] sm:text-3xl">
+          Welcome back, {user?.name || "Parent"}!
+        </h2>
+
+        <p className="text-sm text-[#6B6863] sm:text-base">
+          Stay connected with your child's learning and celebrate every achievement.
+        </p>
+      </section>
+
+      {/* STATISTICS */}
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          const colors = statColors[stat.color];
+
+          return (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-[#E6E2D8] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:p-6"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#6B6863]">
+                    {stat.label}
+                  </p>
+
+                  <h3 className={`mt-3 text-3xl font-bold ${colors.value}`}>
+                    {stat.value}
+                  </h3>
+                </div>
+
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${colors.icon}`}
+                >
+                  <Icon size={23} />
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs text-[#96928B]">
+                {stat.description}
+              </p>
+            </div>
+          );
+        })}
+      </section>
+
+      {/* CHILD ACTIVITY */}
+      <section className="overflow-hidden rounded-2xl border border-[#E6E2D8] bg-white shadow-sm">
+
+        <div className="border-b border-[#E6E2D8] px-5 py-5 sm:px-7">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E4EFEE] text-[#2F6B66]">
+              <FiHeart size={21} />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-[#1F4B47]">
+                Your Child's Activity
+              </h3>
+
+              <p className="mt-1 text-sm text-[#6B6863]">
+                Follow progress and celebrate achievements.
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
-            <h2 className="text-gray-600 font-medium mb-2">Total Children</h2>
-            <p className="text-4xl font-bold text-indigo-700">
-              {children.length}
-            </p>
-          </div>
+        <div className="space-y-4 p-5 sm:p-7">
 
-          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-indigo-100 shadow-lg hover:shadow-xl transition">
-            <h2 className="text-gray-600 font-medium mb-2">Total Tasks</h2>
-            <p className="text-4xl font-bold text-indigo-700">
-              {stats.totalTasks}
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-green-100 shadow-lg hover:shadow-xl transition">
-            <h2 className="text-gray-600 font-medium mb-2">Completed</h2>
-            <p className="text-4xl font-bold text-green-600">
-              {stats.totalCompleted}
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-white/60 backdrop-blur-md border border-orange-100 shadow-lg hover:shadow-xl transition">
-            <h2 className="text-gray-600 font-medium mb-2">Pending</h2>
-            <p className="text-4xl font-bold text-orange-600">
-              {stats.totalPending}
-            </p>
-          </div>
-        </div>
-
-        {/* Children List with Task Progress */}
-        <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-md border border-indigo-100 shadow-md">
-          <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-            Child Activity
-          </h2>
           {children.length > 0 ? (
-            <ul className="space-y-4">
-              {children.map((child) => {
-                const completionRate =
-                  child.total > 0
-                    ? Math.round((child.completed / child.total) * 100)
-                    : 0;
+            children.map((child) => {
+              const completionRate =
+                child.total > 0
+                  ? Math.round((child.completed / child.total) * 100)
+                  : 0;
 
-                return (
-                  <li
-                    key={child._id}
-                    onClick={() => handleChildClick(child)} // Modal trigger
-                    className="border border-gray-200 rounded-xl p-5 hover:bg-indigo-50/50 transition cursor-pointer"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                      {/* Child Info */}
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-800 text-lg mb-2">
+              const initials = child.name
+                ?.split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+
+              return (
+                <div
+                  key={child._id}
+                  onClick={() => handleChildClick(child)}
+                  className="cursor-pointer rounded-xl border border-[#E6E2D8] p-5 transition hover:border-[#B9D4CD] hover:bg-[#FAFCFB]"
+                >
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#E4EFEE] text-lg font-bold text-[#2F6B66]">
+                        {initials || "C"}
+                      </div>
+
+                      <div>
+                        <h4 className="text-lg font-bold text-[#262521]">
                           {child.name}
-                        </h3>
+                        </h4>
 
                         {child.total > 0 ? (
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-gray-600">
-                              {child.total} task
-                              {child.total !== 1 ? "s" : ""}
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                            <span className="text-[#6B6863]">
+                              {child.total} tasks
                             </span>
-                            <span className="text-green-600 font-medium">
-                              ✓ {child.completed} completed
+
+                            <span className="flex items-center gap-1 font-medium text-[#4C8C5B]">
+                              <FiCheck size={14} />
+                              {child.completed} completed
                             </span>
+
                             {child.pending > 0 && (
-                              <span className="text-orange-600">
-                                ⏳ {child.pending} pending
+                              <span className="flex items-center gap-1 text-[#B85C34]">
+                                <FiClock size={14} />
+                                {child.pending} pending
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-500 text-sm">
-                            No tasks assigned yet
-                          </span>
+                          <p className="mt-2 text-sm text-[#96928B]">
+                            No tasks assigned yet.
+                          </p>
                         )}
                       </div>
-
-                      {/* Progress Bar */}
-                      {child.total > 0 && (
-                        <div className="flex flex-col items-end sm:ml-4">
-                          <span className="text-sm font-semibold text-indigo-700 mb-2">
-                            {completionRate}% Complete
-                          </span>
-                          <div className="w-full sm:w-32 h-3 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
-                              style={{ width: `${completionRate}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
+
+                    {child.total > 0 && (
+                      <div className="sm:w-44">
+                        <div className="mb-2 flex justify-between text-sm">
+                          <span className="font-medium text-[#6B6863]">
+                            Progress
+                          </span>
+
+                          <span className="font-bold text-[#2F6B66]">
+                            {completionRate}%
+                          </span>
+                        </div>
+
+                        <div className="h-2.5 overflow-hidden rounded-full bg-[#EAE8E2]">
+                          <div
+                            className="h-full rounded-full bg-[#2F6B66] transition-all duration-500"
+                            style={{ width: `${completionRate}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              );
+            })
           ) : (
-            <p className="text-gray-500 text-center py-4">
-              No children linked yet.
-            </p>
-          )}
-        </div>
-
-        {/* Link Child Section */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 text-white shadow-xl">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-            Link a Child
-          </h2>
-          <form className="space-y-6" onSubmit={handleLinkChild}>
-            {/* Enrollment ID */}
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Enrollment ID
-              </label>
-              <input
-                type="text"
-                value={enrollmentId}
-                onChange={(e) => setEnrollmentId(e.target.value)}
-                placeholder="Enter child's enrollment ID"
-                className="w-full bg-white/90 text-gray-800 border-none rounded-lg p-3 focus:ring-4 focus:ring-indigo-300 outline-none"
-                required
+            <div className="rounded-xl bg-[#F0F5F2] px-5 py-12 text-center">
+              <FiUsers
+                size={32}
+                className="mx-auto mb-3 text-[#2F6B66]"
               />
-            </div>
 
-            {/* Visual PIN */}
-            <div>
-              <label className="block text-sm font-medium mb-3">
-                Visual PIN
-              </label>
-              <div className="flex gap-4 justify-center sm:justify-start">
-                {visualPin.map((val, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handlePinTap(idx)}
-                    className={`w-20 h-20 text-4xl rounded-2xl flex items-center justify-center border border-white/30 shadow-lg transform transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-white/50 ${PIN_COLORS[idx]}`}
-                  >
-                    {val || "❔"}
-                  </button>
-                ))}
-              </div>
-            </div>
+              <h4 className="font-bold text-[#1F4B47]">
+                No children linked yet
+              </h4>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isLinking}
-              className={`w-full py-3 rounded-xl font-semibold transition ${
-                isLinking
-                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-white text-indigo-700 hover:bg-indigo-50"
-              }`}
-            >
-              {isLinking ? "Linking..." : "Link Child"}
-            </button>
-          </form>
+              <p className="mt-2 text-sm text-[#6B6863]">
+                Link your child's account below to follow their learning journey.
+              </p>
+            </div>
+          )}
+
         </div>
-      </div>
+      </section>
 
-      {/* Student Task Modal */}
+      {/* LINK CHILD */}
+      <section className="overflow-hidden rounded-2xl border border-[#D7E7E1] bg-white shadow-sm">
+
+        <div className="bg-[#1F4B47] px-6 py-6 text-white sm:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+              <FiUserPlus size={23} />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold">
+                Link Your Child
+              </h3>
+
+              <p className="mt-1 text-sm text-white/70">
+                Connect your account to your child's DownX profile.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form
+          className="space-y-7 p-6 sm:p-8"
+          onSubmit={handleLinkChild}
+        >
+
+          {/* ENROLLMENT ID */}
+          <div>
+            <label
+              htmlFor="enrollmentId"
+              className="mb-2 block text-sm font-bold text-[#262521]"
+            >
+              Student Enrollment ID
+            </label>
+
+            <input
+              id="enrollmentId"
+              type="text"
+              value={enrollmentId}
+              onChange={(event) => setEnrollmentId(event.target.value)}
+              placeholder="Enter your child's enrollment ID"
+              className="w-full rounded-xl border border-[#DCD9D1] bg-[#FAFAF8] px-4 py-3 text-sm text-[#262521] outline-none transition placeholder:text-[#AAA69E] focus:border-[#2F6B66] focus:bg-white focus:ring-2 focus:ring-[#2F6B66]/15"
+              required
+            />
+          </div>
+
+          {/* VISUAL PIN */}
+          <div>
+            <label className="mb-2 block text-sm font-bold text-[#262521]">
+              Visual PIN
+            </label>
+
+            <p className="mb-4 text-sm text-[#6B6863]">
+              Tap each box to select the matching symbol from your child's PIN.
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-3 sm:justify-start">
+              {visualPin.map((value, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  aria-label={`Visual PIN position ${index + 1}: ${value || "not selected"}`}
+                  onClick={() => handlePinTap(index)}
+                  className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#D7E7E1] bg-[#E4EFEE] text-3xl shadow-sm transition hover:-translate-y-1 hover:border-[#2F6B66] hover:bg-[#D7E9E3] focus:outline-none focus:ring-2 focus:ring-[#2F6B66]"
+                >
+                  {value || "❔"}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-3 text-xs text-[#96928B]">
+              Select all four symbols in the correct order.
+            </p>
+          </div>
+
+          {/* SUBMIT */}
+          <button
+            type="submit"
+            disabled={isLinking}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#2F6B66] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#1F4B47] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            <FiLink size={17} />
+            {isLinking ? "Linking..." : "Link Child"}
+            {!isLinking && <FiArrowRight size={17} />}
+          </button>
+
+        </form>
+      </section>
+
+      {/* STUDENT TASK MODAL */}
       <StudentTaskView
         isOpen={isModalOpen}
         onClose={closeModal}
         student={selectedStudent}
         tasks={tasks}
       />
+
     </div>
   );
 };
