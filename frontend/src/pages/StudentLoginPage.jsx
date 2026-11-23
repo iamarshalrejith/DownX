@@ -1,25 +1,25 @@
-/**
- * StudentLoginPage.jsx
- *
- * DownX design system applied:
- * - Atkinson Hyperlegible, calm warm-neutral palette (no saturated
- *   "kids app" colors)
- * - PIN tiles use the shared ring-badge icon system instead of raw
- *   emoji — see utils/visualPinDisplay.js. Stored PIN values are
- *   unchanged, so this is a display-only change.
- * - Larger, unambiguous touch targets; clear step-by-step language
- */
 
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { studentLogin, reset } from "../features/student/studentSlice";
 import { useNavigate } from "react-router-dom";
-import { FiArrowLeft, FiHelpCircle, FiUser } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiHelpCircle,
+  FiUser,
+  FiCamera,
+  FiImage,
+  FiArrowRight,
+  FiCheckCircle,
+} from "react-icons/fi";
 import Confetti from "react-confetti";
 import toast from "react-hot-toast";
 import LoadingDots from "../components/Loadingdots";
 import axios from "axios";
-import { VISUAL_PIN_VALUES, VISUAL_PIN_DISPLAY } from "../utils/visualPinDisplay";
+import {
+  VISUAL_PIN_VALUES,
+  VISUAL_PIN_DISPLAY,
+} from "../utils/visualPinDisplay";
 
 const StudentLoginPage = () => {
   const dispatch = useDispatch();
@@ -33,12 +33,11 @@ const StudentLoginPage = () => {
   const [visualPin, setVisualPin] = useState(["", "", "", ""]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [faceEnabled, setFaceEnabled] = useState(null);
-  const [loginMode, setLoginMode] = useState(null); // null | "pin"
+  const [loginMode, setLoginMode] = useState(null);
   const [checkingStudent, setCheckingStudent] = useState(false);
 
-  const { student, isLoading, loginSuccess, isError, message } = useSelector(
-    (s) => s.students,
-  );
+  const { student, isLoading, loginSuccess, isError, message } =
+    useSelector((state) => state.students);
 
   // Login success
   useEffect(() => {
@@ -47,29 +46,34 @@ const StudentLoginPage = () => {
       toast.success("Welcome back!");
       setShowConfetti(true);
       navigate("/student-dashboard", { replace: true });
-      setTimeout(() => setShowConfetti(false), 2500);
+
+      const timer = setTimeout(() => setShowConfetti(false), 2500);
+      return () => clearTimeout(timer);
     }
   }, [loginSuccess, student, navigate]);
 
-  // Error
+  // Login error
   useEffect(() => {
     if (isError && !resetCalledRef.current) {
       resetCalledRef.current = true;
       toast.error(message || "That didn't work. Please try again.");
-      setTimeout(() => {
+
+      const timer = setTimeout(() => {
         dispatch(reset());
         resetCalledRef.current = false;
       }, 100);
+
+      return () => clearTimeout(timer);
     }
   }, [isError, message, dispatch]);
 
-  useEffect(
-    () => () => {
+  // Reset refs on unmount
+  useEffect(() => {
+    return () => {
       navigatedRef.current = false;
       resetCalledRef.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   // Reset PIN when enrollment ID changes
   useEffect(() => {
@@ -84,62 +88,76 @@ const StudentLoginPage = () => {
       setCheckingStudent(false);
       return;
     }
+
     latestEnrollRef.current = enrollmentId;
     setCheckingStudent(true);
 
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
-        const res = await axios.post(
+        const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/api/students/login-options`,
-          { enrollmentId },
+          { enrollmentId }
         );
-        if (latestEnrollRef.current === enrollmentId)
-          setFaceEnabled(res.data.faceEnabled);
+
+        if (latestEnrollRef.current === enrollmentId) {
+          setFaceEnabled(response.data.faceEnabled);
+        }
       } catch {
-        setFaceEnabled(null);
+        if (latestEnrollRef.current === enrollmentId) {
+          setFaceEnabled(null);
+        }
       } finally {
-        if (latestEnrollRef.current === enrollmentId) setCheckingStudent(false);
+        if (latestEnrollRef.current === enrollmentId) {
+          setCheckingStudent(false);
+        }
       }
     }, 700);
 
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [enrollmentId]);
 
-  const handlePinTap = (idx) => {
-    setVisualPin((prev) => {
-      const cur = prev[idx];
-      const nextIndex = cur
-        ? (VISUAL_PIN_VALUES.indexOf(cur) + 1) % VISUAL_PIN_VALUES.length
+  // Select a picture for a PIN slot
+  const handlePinTap = (index) => {
+    setVisualPin((previous) => {
+      const current = previous[index];
+
+      const nextIndex = current
+        ? (VISUAL_PIN_VALUES.indexOf(current) + 1) %
+          VISUAL_PIN_VALUES.length
         : 0;
-      const next = [...prev];
-      next[idx] = VISUAL_PIN_VALUES[nextIndex];
+
+      const next = [...previous];
+      next[index] = VISUAL_PIN_VALUES[nextIndex];
+
       return next;
     });
   };
 
+  // Submit PIN login
   const handleSubmit = () => {
-    if (checkingStudent) return;
+    if (checkingStudent || isLoading) return;
+
     if (!enrollmentId || visualPin.includes("")) {
       toast.error("Enter your ID and choose all 4 pictures first.");
       return;
     }
+
     navigatedRef.current = false;
     resetCalledRef.current = false;
+
     dispatch(studentLogin({ enrollmentId, visualPin }));
   };
 
   const allPinFilled = !visualPin.includes("");
 
+  const handleFaceLogin = () => {
+    navigate(
+      `/student-face-login?enrollmentId=${encodeURIComponent(enrollmentId)}`
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-start pt-10 pb-16 px-5 relative">
-      {/* Back button */}
-      <button
-        onClick={() => navigate("/")}
-        aria-label="Go back"
-        className="absolute top-5 left-5 w-12 h-12 flex items-center justify-center rounded-full bg-surface border-2 border-border hover:bg-brand-light transition-colors focus-visible:outline focus-visible:outline-3"
-      >
-        <FiArrowLeft size={22} className="text-ink" />
-      </button>
+    <main className="relative min-h-screen overflow-hidden bg-bg px-5 py-6 sm:px-8">
 
       {showConfetti && (
         <Confetti
@@ -149,145 +167,308 @@ const StudentLoginPage = () => {
         />
       )}
 
-      {/* Welcome heading */}
-      <div className="text-center mb-8 mt-6">
-        <div
-          className="mx-auto mb-4 w-14 h-14 rounded-full bg-surface flex items-center justify-center"
-          style={{ boxShadow: "0 0 0 3px var(--color-brand)" }}
-          aria-hidden="true"
-        >
-          <FiUser size={24} className="text-brand" />
-        </div>
-        <h1 className="text-3xl font-extrabold text-ink">Welcome back</h1>
-        <p className="text-lg text-ink-soft mt-2">Type your ID to start</p>
-      </div>
+      {/* Decorative background */}
+      <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-brand-light/60 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-accent-light/50 blur-3xl" />
 
-      {/* Enrollment ID input */}
-      <label htmlFor="enrollmentId" className="sr-only">
-        Student ID
-      </label>
-      <input
-        id="enrollmentId"
-        type="text"
-        placeholder="Your ID (e.g. DX-20260001)"
-        value={enrollmentId}
-        onChange={(e) => setEnrollmentId(e.target.value.toUpperCase())}
-        className="w-full max-w-sm p-5 text-xl text-center rounded-2xl border-2 border-border bg-surface shadow-sm focus:outline-none focus-visible:outline focus-visible:outline-3 placeholder:text-ink-soft/60 mb-6 font-bold tracking-widest"
-      />
+      {/* Header */}
+      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between">
 
-      {/* Checking indicator */}
-      {checkingStudent && (
-        <div className="flex flex-col items-center gap-2 mb-6">
-          <LoadingDots />
-          <p className="text-lg text-ink-soft font-semibold">
-            Looking for your account…
-          </p>
-        </div>
-      )}
-
-      {/* ── Login options ─────────────────────────────────────────── */}
-
-      {/* Face login option */}
-      {!checkingStudent && faceEnabled === true && !loginMode && (
-        <div className="w-full max-w-sm flex flex-col gap-4 mb-2">
-          <button
-            onClick={() =>
-              navigate(`/student-face-login?enrollmentId=${enrollmentId}`)
-            }
-            className="w-full py-6 bg-brand hover:bg-brand-dark text-white text-xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3"
-          >
-            Log in with my face
-          </button>
-          <button
-            onClick={() => setLoginMode("pin")}
-            className="w-full py-6 bg-surface hover:bg-accent-light text-ink border-2 border-border text-xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3"
-          >
-            Log in with pictures
-          </button>
-        </div>
-      )}
-
-      {/* PIN only (no face) */}
-      {!checkingStudent && faceEnabled === false && !loginMode && (
         <button
-          onClick={() => setLoginMode("pin")}
-          className="w-full max-w-sm py-7 bg-brand hover:bg-brand-dark text-white text-xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3"
+          onClick={() => navigate("/")}
+          aria-label="Go back"
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface text-brand transition hover:bg-brand-light"
         >
-          Log in with pictures
+          <FiArrowLeft size={21} />
         </button>
-      )}
 
-      {/* ── PIN grid ──────────────────────────────────────────────── */}
-      {loginMode === "pin" && (
-        <div className="w-full max-w-sm flex flex-col items-center gap-6">
-          <p className="text-xl font-bold text-ink text-center">
-            Tap each picture to choose your secret code
-          </p>
-
-          {/* 4 ring-badge tiles */}
-          <div className="grid grid-cols-4 gap-3 w-full">
-            {visualPin.map((val, idx) => {
-              const display = val ? VISUAL_PIN_DISPLAY[val] : null;
-              const Icon = display?.Icon || FiHelpCircle;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => handlePinTap(idx)}
-                  aria-label={
-                    display ? `Slot ${idx + 1}: ${display.label}` : `Slot ${idx + 1}: empty`
-                  }
-                  className={`h-20 rounded-2xl border-2 flex items-center justify-center shadow-sm transition-all active:scale-95 focus-visible:outline focus-visible:outline-3 ${
-                    display
-                      ? `${display.bg} border-transparent ring-2 ${display.ring}`
-                      : "bg-surface border-border"
-                  }`}
-                >
-                  <Icon
-                    size={30}
-                    className={display ? display.icon : "text-ink-soft"}
-                  />
-                </button>
-              );
-            })}
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-xl font-extrabold text-white">
+            D
           </div>
 
-          {/* Current pin labels, for confirmation */}
-          <p className="text-base text-ink-soft font-semibold text-center">
-            {visualPin
-              .map((v) => (v ? VISUAL_PIN_DISPLAY[v].label : "empty"))
-              .join("  •  ")}
+          <div>
+            <h1 className="text-xl font-extrabold text-brand-dark">
+              DownX
+            </h1>
+            <p className="text-xs text-ink-soft">
+              Learn. Grow. Shine.
+            </p>
+          </div>
+        </div>
+
+        <div className="w-11" />
+      </header>
+
+      {/* Main content */}
+      <section className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center pt-12 sm:pt-16">
+
+        {/* Welcome */}
+        <div className="mb-9 text-center">
+
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-light text-brand">
+            <FiUser size={30} />
+          </div>
+
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.2em] text-brand">
+            Your learning space
           </p>
 
-          {/* GO button */}
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || !allPinFilled}
-            className={`w-full py-6 text-2xl font-extrabold rounded-2xl shadow-sm transition-colors focus-visible:outline focus-visible:outline-3 ${
-              allPinFilled && !isLoading
-                ? "bg-success hover:bg-success/90 text-white"
-                : "bg-border text-ink-soft cursor-not-allowed"
-            }`}
-          >
-            {isLoading ? <LoadingDots /> : "Continue"}
-          </button>
+          <h2 className="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
+            Hello, learner!
+          </h2>
 
-          {/* Back to options */}
-          <button
-            onClick={() => setLoginMode(null)}
-            className="text-lg text-ink-soft hover:text-ink underline transition-colors focus-visible:outline focus-visible:outline-3"
-          >
-            Other login options
-          </button>
+          <p className="mt-3 text-base leading-7 text-ink-soft">
+            Enter your student ID to get started.
+          </p>
         </div>
-      )}
 
-      {/* Helper text */}
-      {!loginMode && !checkingStudent && (
-        <p className="mt-8 text-lg text-ink-soft text-center max-w-sm">
-          Enter your ID above to see your login options
+        {/* Student ID */}
+        <div className="w-full">
+
+          <label
+            htmlFor="enrollmentId"
+            className="mb-3 block text-sm font-bold text-ink"
+          >
+            Your Student ID
+          </label>
+
+          <input
+            id="enrollmentId"
+            type="text"
+            autoComplete="off"
+            placeholder="Example: DX-20260001"
+            value={enrollmentId}
+            onChange={(event) =>
+              setEnrollmentId(event.target.value.toUpperCase())
+            }
+            className="w-full rounded-2xl border-2 border-border bg-surface px-5 py-5 text-center text-lg font-bold tracking-wider text-ink shadow-sm outline-none transition placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-soft/60 focus:border-brand focus:ring-4 focus:ring-brand/10"
+          />
+
+        </div>
+
+        {/* Checking account */}
+        {checkingStudent && (
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <LoadingDots />
+            <p className="text-sm font-semibold text-ink-soft">
+              Looking for your account...
+            </p>
+          </div>
+        )}
+
+        {/* Login options */}
+        {!checkingStudent && faceEnabled === true && !loginMode && (
+          <div className="mt-8 w-full space-y-4">
+
+            <p className="mb-5 text-center text-sm font-bold text-ink">
+              Choose how you want to log in
+            </p>
+
+            <button
+              onClick={handleFaceLogin}
+              className="flex w-full items-center gap-4 rounded-2xl border-2 border-brand bg-brand p-5 text-left text-white shadow-sm transition hover:bg-brand-dark active:scale-[0.99]"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                <FiCamera size={25} />
+              </div>
+
+              <div className="flex-1">
+                <span className="block text-lg font-extrabold">
+                  Log in with my face
+                </span>
+                <span className="mt-1 block text-sm text-white/75">
+                  Use the camera to log in.
+                </span>
+              </div>
+
+              <FiArrowRight size={22} />
+            </button>
+
+            <button
+              onClick={() => setLoginMode("pin")}
+              className="flex w-full items-center gap-4 rounded-2xl border-2 border-border bg-surface p-5 text-left text-ink shadow-sm transition hover:border-brand hover:bg-brand-light/40 active:scale-[0.99]"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-light text-accent-dark">
+                <FiImage size={25} />
+              </div>
+
+              <div className="flex-1">
+                <span className="block text-lg font-extrabold">
+                  Log in with pictures
+                </span>
+                <span className="mt-1 block text-sm text-ink-soft">
+                  Choose your four secret pictures.
+                </span>
+              </div>
+
+              <FiArrowRight size={22} />
+            </button>
+
+          </div>
+        )}
+
+        {/* PIN only */}
+        {!checkingStudent && faceEnabled === false && !loginMode && (
+          <div className="mt-8 w-full">
+
+            <button
+              onClick={() => setLoginMode("pin")}
+              className="flex w-full items-center gap-4 rounded-2xl bg-brand p-5 text-left text-white shadow-sm transition hover:bg-brand-dark active:scale-[0.99]"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                <FiImage size={25} />
+              </div>
+
+              <div className="flex-1">
+                <span className="block text-lg font-extrabold">
+                  Log in with pictures
+                </span>
+                <span className="mt-1 block text-sm text-white/75">
+                  Choose your four secret pictures.
+                </span>
+              </div>
+
+              <FiArrowRight size={22} />
+            </button>
+
+          </div>
+        )}
+
+        {/* Visual PIN */}
+        {loginMode === "pin" && (
+          <div className="mt-9 w-full">
+
+            <div className="mb-7 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-light text-accent-dark">
+                <FiImage size={26} />
+              </div>
+
+              <h3 className="text-2xl font-extrabold text-ink">
+                Your secret pictures
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                Tap each box to find the picture in your secret code.
+              </p>
+            </div>
+
+            {/* PIN slots */}
+            <div className="grid grid-cols-4 gap-3 sm:gap-4">
+              {visualPin.map((value, index) => {
+                const display = value
+                  ? VISUAL_PIN_DISPLAY[value]
+                  : null;
+
+                const Icon = display?.Icon || FiHelpCircle;
+
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handlePinTap(index)}
+                    aria-label={
+                      display
+                        ? `Slot ${index + 1}: ${display.label}`
+                        : `Slot ${index + 1}: empty`
+                    }
+                    className={`relative flex aspect-square items-center justify-center rounded-2xl border-2 shadow-sm transition hover:-translate-y-1 active:scale-95 focus-visible:outline focus-visible:outline-3 focus-visible:outline-brand ${
+                      display
+                        ? `${display.bg} border-transparent ring-2 ${display.ring}`
+                        : "border-border bg-surface"
+                    }`}
+                  >
+                    <span className="absolute left-2 top-2 text-xs font-bold text-ink-soft/70">
+                      {index + 1}
+                    </span>
+
+                    <Icon
+                      size={32}
+                      className={display ? display.icon : "text-ink-soft"}
+                    />
+
+                    {display && (
+                      <FiCheckCircle
+                        className="absolute right-2 top-2 text-success"
+                        size={16}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* PIN labels */}
+            <div className="mt-5 rounded-xl bg-brand-light/70 px-4 py-3 text-center">
+              <p className="text-xs font-bold uppercase tracking-wider text-brand">
+                Your selected pictures
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-ink">
+                {visualPin
+                  .map((value) =>
+                    value ? VISUAL_PIN_DISPLAY[value].label : "Not selected"
+                  )
+                  .join("  •  ")}
+              </p>
+            </div>
+
+            {/* Progress */}
+            <p className="mt-4 text-center text-sm font-semibold text-ink-soft">
+              {visualPin.filter(Boolean).length} of 4 pictures selected
+            </p>
+
+            {/* Continue */}
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading || !allPinFilled || checkingStudent}
+              className={`mt-5 flex w-full items-center justify-center gap-3 rounded-2xl py-5 text-lg font-extrabold text-white shadow-sm transition active:scale-[0.99] ${
+                allPinFilled && !isLoading
+                  ? "bg-brand hover:bg-brand-dark"
+                  : "cursor-not-allowed bg-border text-ink-soft"
+              }`}
+            >
+              {isLoading ? (
+                <LoadingDots />
+              ) : (
+                <>
+                  Continue
+                  <FiArrowRight size={21} />
+                </>
+              )}
+            </button>
+
+            {/* Other options */}
+            <button
+              onClick={() => setLoginMode(null)}
+              className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-brand transition hover:bg-brand-light"
+            >
+              Choose another login method
+            </button>
+
+          </div>
+        )}
+
+        {/* Helper */}
+        {!loginMode && !checkingStudent && (
+          <p className="mt-8 max-w-sm text-center text-sm leading-6 text-ink-soft">
+            Need help? Ask your teacher or parent to help you find your student ID.
+          </p>
+        )}
+
+      </section>
+
+      {/* Footer */}
+      <footer className="relative z-10 mx-auto mt-16 max-w-6xl border-t border-border pt-6 text-center">
+        <p className="text-xs text-ink-soft">
+          DownX · Learn. Grow. Shine.
         </p>
-      )}
-    </div>
+        <p className="mt-1 text-xs text-ink-soft/70">
+          Every little step is a big achievement.
+        </p>
+      </footer>
+
+    </main>
   );
 };
 

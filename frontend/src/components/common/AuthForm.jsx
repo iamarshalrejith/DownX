@@ -1,9 +1,11 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { login, register, reset } from "../../features/auth/authSlice.js";
 import Loadingdots from "../Loadingdots.jsx";
 import toast from "react-hot-toast";
+import { FiEye, FiEyeOff, FiMail, FiLock, FiUser } from "react-icons/fi";
 
 const AuthForm = ({ type = "login" }) => {
   const [formData, setFormData] = useState({
@@ -13,41 +15,36 @@ const AuthForm = ({ type = "login" }) => {
     role: "",
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+
   const isLogin = type === "login";
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const hasShownToast = useRef(false);
 
-  // get auth state from redux
   const { user, isLoading, isError, isSuccess, message } = useSelector(
     (state) => state.auth
   );
 
-  // Handle login/register success or errors
   useEffect(() => {
-    // Only show toast and navigate on fresh success
     if (isSuccess && user && !hasShownToast.current) {
       hasShownToast.current = true;
-      toast.success("Welcome Back!");
+      toast.success("Welcome to DownX!");
 
-      // Navigate based on role
-      switch (user.role) {
-        case "teacher":
-          navigate("/dashboard/teacher", { replace: true });
-          break;
-        case "parent":
-          navigate("/dashboard/parent", { replace: true });
-          break;
-        default:
-          navigate("/dashboard", { replace: true }); // fallback
+      if (user.role === "teacher") {
+        navigate("/dashboard/teacher", { replace: true });
+      } else if (user.role === "parent") {
+        navigate("/dashboard/parent", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
       }
     }
 
     if (isError) {
       toast.error(message || "Login/Register failed");
+      hasShownToast.current = false;
     }
 
-    // Reset form and auth state after success or error
     if (isSuccess || isError) {
       setFormData({
         name: "",
@@ -55,22 +52,18 @@ const AuthForm = ({ type = "login" }) => {
         password: "",
         role: "",
       });
+
       dispatch(reset());
-      
-      // Reset the toast flag when resetting state
-      if (isError) {
-        hasShownToast.current = false;
-      }
     }
   }, [isError, isSuccess, message, dispatch, navigate, user]);
 
-  // Reset toast flag when component mounts
   useEffect(() => {
     hasShownToast.current = false;
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -79,10 +72,15 @@ const AuthForm = ({ type = "login" }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    hasShownToast.current = false; // Reset before new submission
-    
+    hasShownToast.current = false;
+
     if (isLogin) {
-      dispatch(login({ email: formData.email, password: formData.password }));
+      dispatch(
+        login({
+          email: formData.email,
+          password: formData.password,
+        })
+      );
     } else {
       dispatch(
         register({
@@ -95,122 +93,163 @@ const AuthForm = ({ type = "login" }) => {
     }
   };
 
+  const inputClass =
+    "w-full rounded-xl border border-border bg-bg py-3.5 pl-11 pr-4 text-sm text-ink placeholder:text-ink-soft/70 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10";
+
   return (
     <form
       className="space-y-5"
       onSubmit={handleSubmit}
       aria-label={isLogin ? "Login form" : "Registration form"}
     >
-      {/* Title */}
-      <h2 className="text-3xl font-extrabold text-center">
-        {isLogin ? "Welcome Back" : "Create Account"}
-      </h2>
-      <p className="text-center font-bold text-sm">
-        {isLogin ? "Login in" : "Sign up"}
-      </p>
+      {/* Heading */}
+      <div className="mb-7 text-center">
+        <h2 className="text-3xl font-extrabold tracking-tight text-ink">
+          {isLogin ? "Welcome Back" : "Create Account"}
+        </h2>
 
-      {/* Registration Fields */}
+        <p className="mt-2 text-sm leading-6 text-ink-soft">
+          {isLogin
+            ? "Sign in to continue your learning journey."
+            : "Join the DownX learning community."}
+        </p>
+      </div>
+
+      {/* Name */}
       {!isLogin && (
-        <>
-          {/* Name field */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1">
-              Name
-            </label>
+        <div>
+          <label
+            htmlFor="name"
+            className="mb-2 block text-sm font-semibold text-ink"
+          >
+            Full Name
+          </label>
+
+          <div className="relative">
+            <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
+
             <input
-              type="text"
               id="name"
               name="name"
+              type="text"
               value={formData.name}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              placeholder="John Doe"
+              autoComplete="name"
+              placeholder="Enter your name"
+              className={inputClass}
             />
           </div>
-
-          {/* Role Field */}
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium mb-1">
-              Role
-            </label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-            >
-              <option value="">Select role</option>
-              <option value="teacher">Teacher</option>
-              <option value="parent">Parent</option>
-            </select>
-          </div>
-        </>
+        </div>
       )}
 
-      {/* Email Field */}
+      {/* Role */}
+      {!isLogin && (
+        <div>
+          <label
+            htmlFor="role"
+            className="mb-2 block text-sm font-semibold text-ink"
+          >
+            I am a
+          </label>
+
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            required
+            className="w-full rounded-xl border border-border bg-bg px-4 py-3.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+          >
+            <option value="">Choose your role</option>
+            <option value="teacher">Teacher</option>
+            <option value="parent">Parent</option>
+          </select>
+        </div>
+      )}
+
+      {/* Email */}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium mb-1">
-          Email
+        <label
+          htmlFor="email"
+          className="mb-2 block text-sm font-semibold text-ink"
+        >
+          Email Address
         </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-          className="w-full px-4 py-2 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-          placeholder="you@example.com"
-        />
+
+        <div className="relative">
+          <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
+
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            className={inputClass}
+          />
+        </div>
       </div>
 
-      {/* Password Field */}
+      {/* Password */}
       <div>
-        <label htmlFor="password" className="block text-sm font-medium mb-1">
+        <label
+          htmlFor="password"
+          className="mb-2 block text-sm font-semibold text-ink"
+        >
           Password
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-          className="w-full px-4 py-2 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-          placeholder="••••••••"
-        />
+
+        <div className="relative">
+          <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
+
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={formData.password}
+            onChange={handleChange}
+            required
+            autoComplete={isLogin ? "current-password" : "new-password"}
+            placeholder="Enter your password"
+            className={`${inputClass} pr-12`}
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-soft transition hover:text-brand"
+          >
+            {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+          </button>
+        </div>
       </div>
 
-      {/* Submit Button */}
+      {/* Submit */}
       <button
         type="submit"
         disabled={isLoading}
-        className={`w-full py-3 px-4 rounded-xl font-semibold text-white shadow-lg transition ${
-          isLoading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-gray-950 hover:bg-black"
-        }`}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3.5 px-4 font-bold text-white shadow-md transition hover:bg-brand-dark hover:shadow-lg active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isLoading ? (
           <Loadingdots size="w-3 h-3" color="bg-white" gap="mx-1" />
-        ) : isLogin ? (
-          "Login"
         ) : (
-          "Register"
+          isLogin ? "Sign In" : "Create Account"
         )}
       </button>
 
-      {/* Login or register */}
-      <p className="text-center text-sm text-gray-600 mt-4">
+      {/* Register / Login link */}
+      <p className="pt-1 text-center text-sm text-ink-soft">
         {isLogin ? (
           <>
             Don't have an account?{" "}
             <Link
               to="/register"
-              className="text-gray-900 font-semibold hover:underline"
+              className="font-bold text-brand hover:text-brand-dark hover:underline"
             >
               Register
             </Link>
@@ -220,9 +259,9 @@ const AuthForm = ({ type = "login" }) => {
             Already have an account?{" "}
             <Link
               to="/login"
-              className="text-gray-900 font-semibold hover:underline"
+              className="font-bold text-brand hover:text-brand-dark hover:underline"
             >
-              Login
+              Sign In
             </Link>
           </>
         )}
