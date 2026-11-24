@@ -18,6 +18,7 @@ import StudentFaceLogin from "./pages/StudentFaceLogin";
 import SettingsRouter from "./pages/settings/SettingsRouter";
 import { useSelector } from "react-redux";
 import AIMode from "./pages/AIMode";
+import StudentHome from "./pages/StudentHome";
 
 // Protected dashboard route wrapper
 const DashboardRedirect = () => {
@@ -62,7 +63,9 @@ const App = () => {
         <Route path="settings" element={<SettingsRouter />} />
       </Route>
 
-      <Route path="/student-dashboard" element={<StudentDashboard />} />
+      <Route path="/student-dashboard" element={<StudentHome />} />
+
+      <Route path="/student-dashboard/learn" element={<StudentDashboard />} />
       <Route path="/student-dashboard/settings" element={<SettingsRouter />} />
 
       {/* DEV ONLY */}

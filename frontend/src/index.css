@@ -1,28 +1,35 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap");
 @import "tailwindcss";
 
-/* ─────────────────────────────────────────────────────────────────────
-   DownX Design Tokens
-   Built for accessibility: high legibility type, calm palette, one
-   consistent icon motif (the "ring badge") used everywhere instead
-   of emoji. See /docs for the full rationale.
-   ───────────────────────────────────────────────────────────────── */
+/* ========================================
+   DOWNX DESIGN SYSTEM
+======================================== */
+
 @theme {
   --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
 
+  /* Backgrounds */
   --color-bg: #f6f4ef;
   --color-surface: #ffffff;
+  --color-surface-soft: #f0f5f2;
 
+  /* Text */
   --color-ink: #262521;
   --color-ink-soft: #6b6863;
+  --color-ink-muted: #96928b;
 
+  /* Brand */
   --color-brand: #2f6b66;
   --color-brand-dark: #1f4b47;
   --color-brand-light: #e4efee;
 
+  /* Accent */
   --color-accent: #d97748;
   --color-accent-dark: #b85c34;
   --color-accent-light: #fbeae1;
 
+  /* Status */
   --color-success: #4c8c5b;
   --color-success-light: #e7f2e9;
 
@@ -32,51 +39,202 @@
   --color-danger: #c2503f;
   --color-danger-light: #f7e6e3;
 
+  /* Borders */
   --color-border: #e6e2d8;
+}
+
+/* ========================================
+   GLOBAL BASE
+======================================== */
+
+* {
+  box-sizing: border-box;
 }
 
 html {
   font-family: var(--font-sans);
   color: var(--color-ink);
+  scroll-behavior: smooth;
 }
 
 body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
   background: var(--color-bg);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Visible keyboard focus everywhere — non-negotiable for accessibility */
-:focus-visible {
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* ========================================
+   ACCESSIBILITY
+======================================== */
+
+*:focus-visible {
   outline: 3px solid var(--color-brand);
   outline-offset: 3px;
   border-radius: 4px;
 }
 
-/* Respect reduced-motion preference */
+::selection {
+  background: #cce5df;
+  color: var(--color-brand-dark);
+}
+
+/* ========================================
+   REUSABLE DOWNX COMPONENT STYLES
+======================================== */
+
+.dx-page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.dx-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  box-shadow: 0 4px 18px rgba(38, 37, 33, 0.045);
+}
+
+.dx-card-hover {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.dx-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(38, 37, 33, 0.08);
+  border-color: #c8dcd7;
+}
+
+.dx-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 14px;
+  background: var(--color-brand);
+  color: white;
+  font-weight: 700;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.dx-btn-primary:hover {
+  background: var(--color-brand-dark);
+  transform: translateY(-1px);
+}
+
+.dx-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 22px;
+  border: 1px solid var(--color-brand);
+  border-radius: 14px;
+  background: white;
+  color: var(--color-brand-dark);
+  font-weight: 700;
+  transition: background 180ms ease;
+}
+
+.dx-btn-secondary:hover {
+  background: var(--color-brand-light);
+}
+
+/* ========================================
+   SCROLLBAR
+======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d5d2ca;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa69c;
+}
+
+/* ========================================
+   ANIMATIONS
+======================================== */
+
+@keyframes dx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dx-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-rise {
+  animation: dx-rise 450ms ease-out both;
+}
+
+.animate-float {
+  animation: dx-float 4s ease-in-out infinite;
+}
+
+/* ========================================
+   REDUCED MOTION
+======================================== */
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-@keyframes rise {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-}
-
-.animate-rise {
-  display: inline-block;
-  animation: rise 4s ease-in-out infinite;
 }
